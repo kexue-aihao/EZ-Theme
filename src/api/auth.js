@@ -312,6 +312,26 @@ export function getWebsiteConfig() {
 }
 
 
+// 算术验证码（后端 arithmetic_verification_enable 开启时才有题）
+export function getArithmeticChallenge() {
+  return request({
+    url: '/guest/comm/arithmetic',
+    method: 'get'
+  });
+}
+
+export function verifyArithmeticChallenge(challengeId, answer) {
+  return request({
+    url: '/guest/comm/arithmetic/verify',
+    method: 'post',
+    data: {
+      challenge_id: challengeId,
+      answer
+    }
+  });
+}
+
+
 export function sendEmailVerify(data) {
   const sendData = { ...data };
   

@@ -370,6 +370,11 @@
 
         <!-- 验证码组件 -->
 
+        <ArithmeticField
+          v-if="config.is_arithmetic_verification === 1"
+          :controller="arithmetic"
+        />
+
         <div class="form-group" v-if="config.is_recaptcha === 1">
 
           <label class="form-label">{{ $t('auth.captcha') }} <span class="required">*</span></label>
@@ -567,6 +572,8 @@ import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
 import { useToast } from '@/composables/useToast';
+import ArithmeticField from '@/components/common/ArithmeticField.vue';
+import { useArithmeticChallenge } from '@/composables/useArithmeticChallenge';
 
 import ThemeToggle from '@/components/common/ThemeToggle.vue';
 
@@ -675,6 +682,10 @@ export default {
     const router = useRouter();
 
     const { showToast } = useToast();
+
+// 算术验证码控制器（后端开关打开时才有题，见 fetchWebsiteConfig）
+
+const arithmetic = useArithmeticChallenge();
 
     const { goTo } = useNavigator()
 
@@ -882,6 +893,9 @@ export default {
         if (response && response.data) {
 
           Object.assign(config, response.data);
+          if (config.is_arithmetic_verification === 1) {
+            arithmetic.load();
+          }
 
 
 
@@ -1420,6 +1434,16 @@ export default {
     const handleRegister = async () => {
 
       if (!validateForm()) return;
+
+      // 后端不强制校验这道题，前端必须自己拦
+
+      if (config.is_arithmetic_verification === 1 && !arithmetic.verified.value) {
+
+        showToast(t('auth.arithmetic.required'), 'error');
+
+        return;
+
+      }
 
 
 
@@ -2136,6 +2160,7 @@ export default {
 
 
     return {
+      arithmetic,
 
       formData,
 
