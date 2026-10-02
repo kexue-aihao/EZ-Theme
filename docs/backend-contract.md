@@ -43,8 +43,36 @@
 
 `invalid_reason` 取值：`user_revoked`、`subscription_changed`、`telegram_username_changed`、`binding_group_changed`、`binding_feature_disabled`，其余归 `unknown`（产物就认这五种 + unknown，源码照此实现）。
 
-## 批 4 起要用到的（已确认路由存在，细节到时再核）
+## 两步验证（批 4）
 
-- `GET /user/2fa/status`、`POST /user/2fa/setup|confirm|disable|recovery-codes/regenerate`（`UserRoute.php:29-33`）
-- `POST /passport/auth/2fa/setup|confirm`、`POST /passport/auth/verify2fa`（`PassportRoute.php:34-36`）
-- `GET /user/getActiveSession`、`POST /user/removeActiveSession`（源码里已有）
+### 个人中心（已实现）
+| 接口 | 契约 |
+| --- | --- |
+| `GET /user/2fa/status` | `{data: {enabled, issuer, account}}` |
+| `POST /user/2fa/setup` | `{data: {issuer, account, manual_key, otpauth_uri, qr_code}}`；`qr_code` 是 data URL，后端渲染器不可用时为 `null`（前端回落到手动密钥）；已启用时报「二步验证已经启用」 |
+| `POST /user/2fa/confirm` | 入参 `{code}` → `{data: {enabled: true, recovery_codes: [...]}}`，**成功后所有会话失效** |
+| `POST /user/2fa/disable` | `{current_password, code \| recovery_code}` → `{data: true}`，会话失效 |
+| `POST /user/2fa/recovery-codes/regenerate` | `{current_password, code \| recovery_code}` → `{data: {recovery_codes: [...]}}`，会话失效 |
+
+`current_password` 由控制器先校验（错则 500「当前密码不正确」）；`code` 与 `recovery_code` 二选一，服务端哪个有效用哪个。
+
+### 登录侧（**尚未实现**，下一步）
+| 接口 | 契约 |
+| --- | --- |
+| `POST /passport/auth/login` | 成功响应里可能带 `two_factor_required`（含 `challenge`、`recovery_allowed`、`expires_in`）或 `two_factor_setup_required`（含 `setup_token`） |
+| `POST /passport/auth/verify2fa` | `{challenge, code \| recovery_code}` → `{data: authData}`（这一步才算登录完成） |
+| `POST /passport/auth/2fa/setup` | `{setup_token}` → 二维码/手动密钥；**仅管理员/员工**（`is_admin \|\| is_staff` 且 `requiresSetup`），否则 403 |
+| `POST /passport/auth/2fa/confirm` | `{setup_token, code}` → `authData + recovery_codes` |
+
+产物侧行为（已从 6409 chunk 读出，实现时照抄）：登录成功 → 若带两个标记之一就切到「两步验证」步骤；
+`two_factor_setup_required` 时先 `2fa/setup` 拿二维码；提交后 `verify2fa`/`confirm` → 成功再走
+`consumePendingPurchase()`（登录前在落地页点的购买意图，见 `src/utils/pendingPurchase.js` 的 `readPendingPurchase/clearPendingPurchase`）→ 有单就去 `/payment`，否则 `/dashboard`。
+界面文案用批 1 搬进 auth 集的 `auth.twoFactor.*`（28 条：title/subtitle/setupTitle/setupSubtitle/code/
+codePlaceholder/recoveryCode/recoveryCodePlaceholder/useRecovery/useAuthenticator/issuer/account/manualKey/
+manualOnly/scanQr/verify/back/expiresIn/enterSixDigits/enterRecovery/invalidCode/expired/tooManyAttempts…）。
+
+## OAuth 登录入口（**尚未实现**，批 5）
+产物里是 `OAuthButtons` + `TelegramLoginWidget`（chunk 6409），接口 `GET /passport/oauth/{provider}/state`、
+`POST /passport/oauth/complete`（`PassportRoute.php:42-47`，另见 `CommController` 返回的 `oauth`
+开关：google / github / telegram + `telegram_bot_username` / `telegram_login_domain`）。
+`oauth_register_only` 打开时注册页只留 OAuth 区。
