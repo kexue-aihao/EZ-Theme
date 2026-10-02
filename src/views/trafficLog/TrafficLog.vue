@@ -7,6 +7,26 @@
 
 
     <div class="trafficlog-inner">
+      <!-- 共享套餐：只给整体用量，不提供按节点的明细 -->
+      <div v-if="sharedTraffic" class="shared-traffic-card">
+        <div class="shared-traffic-heading">
+          <span>{{ $t('trafficLog.sharedTraffic.progressTitle') }}</span>
+          <strong>{{ sharedTrafficPercent }}%</strong>
+        </div>
+        <div class="shared-traffic-track">
+          <span :style="{ width: sharedTrafficPercent + '%' }"></span>
+        </div>
+        <p>
+          {{
+            $t('trafficLog.sharedTraffic.summary', {
+              total: formatTraffic(sharedTraffic.total || 0),
+              used: formatTraffic(sharedTraffic.used || 0),
+              remaining: formatTraffic(sharedTraffic.remaining || 0)
+            })
+          }}
+        </p>
+      </div>
+
 
       <!-- 欢迎卡片 -->
 
@@ -224,13 +244,14 @@
 
 <script setup>
 
-import { ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue';
 
 import { useI18n } from 'vue-i18n';
 
 import { IconAlertCircle, IconFileOff } from '@tabler/icons-vue';
 
 import { getTrafficLog } from '@/api/trafficLog';
+import { getUserSubscribe } from '@/api/user';
 
 import { formatTraffic, formatDate } from '@/utils/formatters';
 
@@ -254,6 +275,34 @@ const trafficData = ref([]);
 
 const loading = ref(true);
 
+// 共享套餐（后端在 /user/getSubscribe 里回 shared_subscription）
+
+const sharedTraffic = ref(null);
+
+const sharedTrafficPercent = computed(() => {
+
+  const shared = sharedTraffic.value;
+
+  if (!shared) return 0;
+
+  // 后端给了百分比就用后端的，没给就按已用/总量算
+
+  if (shared.usage_percent !== undefined) {
+
+    return Math.min(100, Math.max(0, Number(shared.usage_percent)));
+
+  }
+
+  const total = Number(shared.total || 0);
+
+  return total > 0
+
+    ? Math.min(100, Math.max(0, Math.round((Number(shared.used || 0) / total) * 100)))
+
+    : 0;
+
+});
+
 const error = ref(false);
 
 const chartRef = ref(null);
@@ -264,14 +313,23 @@ const showOriginalData = ref(false); // false: 显示倍率后, true: 显示实�
 
 
 const fetchTrafficData = async () => {
-
   loading.value = true;
-
   error.value = false;
 
-  
-
   try {
+    // 共享套餐没有明细可拉：先确认这一点，是共享就只留整体用量
+    try {
+      const subscribeResponse = await getUserSubscribe();
+      sharedTraffic.value = subscribeResponse?.data?.shared_subscription || null;
+    } catch (subscribeErr) {
+      // 取不到订阅当作非共享，别因此让整页报错
+      sharedTraffic.value = null;
+    }
+
+    if (sharedTraffic.value) {
+      trafficData.value = [];
+      return;
+    }
 
     const response = await getTrafficLog();
 
@@ -1156,6 +1214,43 @@ onUnmounted(() => {
 
   }
 
+}
+
+
+.shared-traffic-card {
+  margin-bottom: 20px;
+  padding: 18px 20px;
+  border: 1px solid rgba(var(--theme-color-rgb), 0.22);
+  border-radius: 8px;
+  background: rgba(var(--theme-color-rgb), 0.05);
+
+  .shared-traffic-heading {
+    display: flex;
+    justify-content: space-between;
+    color: var(--text-color);
+    font-weight: 600;
+  }
+
+  .shared-traffic-track {
+    height: 7px;
+    margin: 12px 0 9px;
+    overflow: hidden;
+    border-radius: 4px;
+    background: rgba(var(--theme-color-rgb), 0.12);
+
+    span {
+      display: block;
+      height: 100%;
+      background: var(--theme-color);
+      border-radius: inherit;
+    }
+  }
+
+  p {
+    margin: 0;
+    color: var(--secondary-text-color);
+    line-height: 1.6;
+  }
 }
 
 </style> 
