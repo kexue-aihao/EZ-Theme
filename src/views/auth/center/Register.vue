@@ -76,7 +76,12 @@
 
 
 
-      <form class="auth-form" @submit.prevent="handleRegister">
+      <div v-if="!twoFactorActive" class="oauth-entry">
+        <OAuthButtons @completed="handleOAuthCompleted" />
+      </div>
+
+      
+<form class="auth-form" @submit.prevent="handleRegister">
 
         <div class="form-group">
 
@@ -567,11 +572,13 @@
 
 import { reactive, ref, onMounted, onBeforeUnmount, computed, getCurrentInstance, onActivated } from 'vue';
 
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 
 import { useI18n } from 'vue-i18n';
 
 import { useToast } from '@/composables/useToast';
+import OAuthButtons from '@/components/common/OAuthButtons.vue';
+import { completeOAuth } from '@/api/auth';
 import ArithmeticField from '@/components/common/ArithmeticField.vue';
 import { useArithmeticChallenge } from '@/composables/useArithmeticChallenge';
 
@@ -680,6 +687,7 @@ export default {
     const { t } = useI18n();
 
     const router = useRouter();
+  const route = useRoute();
 
     const { showToast } = useToast();
 
@@ -1535,7 +1543,97 @@ const arithmetic = useArithmeticChallenge();
 
 
 
+// ---- 第三方登录 ----
+
+const handleOAuthCompleted = (data) => {
+
+  if (data.auth_data || data.token) {
+
+    showToast(t('auth.loginSuccess'), 'success', 3000);
+
+    setTimeout(() => router.push('/dashboard'), 300);
+
+    return;
+
+  }
+
+  if (data.link_required) {
+
+    showToast(t('auth.oauth.linkRequired'), 'error');
+
+    return;
+
+  }
+
+  if (Array.isArray(data.requirements) && data.requirements.length) {
+
+    showToast(t('auth.oauth.needMore', { fields: data.requirements.join(', ') }), 'error');
+
+    return;
+
+  }
+
+  showToast(t('auth.oauth.needMoreGeneric'), 'error');
+
+};
+
+const handleOAuthCallback = async () => {
+
+  const ticket = route.query.oauth_ticket;
+
+  const errorCode = route.query.oauth_error;
+
+  if (!ticket && !errorCode) return;
+
+  // 先把 query 清掉，避免刷新时重放这次登录
+
+  const rest = { ...route.query };
+
+  delete rest.oauth_ticket;
+
+  delete rest.oauth_error;
+
+  delete rest.telegram_state;
+
+  router.replace({ path: route.path, query: rest });
+
+  if (errorCode) {
+
+    showToast(t('auth.oauth.completeFailed'), 'error');
+
+    return;
+
+  }
+
+  let provider = 'google';
+
+  try {
+
+    provider = localStorage.getItem('oauth_provider') || provider;
+
+  } catch (e) {
+
+    // 读不到就用兜底值
+
+  }
+
+  try {
+
+    const response = await completeOAuth({ provider, ticket: String(ticket) });
+
+    handleOAuthCompleted(response?.data || {});
+
+  } catch (err) {
+
+    showToast(err?.response?.message || err?.message || t('auth.oauth.completeFailed'), 'error');
+
+  }
+
+};
+
     onMounted(() => {
+      handleOAuthCallback();
+
 
 
 
@@ -3952,6 +4050,11 @@ const arithmetic = useArithmeticChallenge();
 
   }
 
+}
+
+
+.oauth-entry {
+  margin-bottom: 20px;
 }
 
 </style>

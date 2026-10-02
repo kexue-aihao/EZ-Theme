@@ -358,6 +358,23 @@ export function confirmTwoFactorLogin(data) {
 }
 
 
+// 第三方登录
+export function getOAuthState(provider) {
+  return request({
+    url: `/passport/oauth/${provider}/state`,
+    method: 'get'
+  });
+}
+
+export function completeOAuth(data) {
+  return request({
+    url: '/passport/oauth/complete',
+    method: 'post',
+    data
+  });
+}
+
+
 export function sendEmailVerify(data) {
   const sendData = { ...data };
   

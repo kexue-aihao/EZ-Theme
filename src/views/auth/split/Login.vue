@@ -121,7 +121,12 @@
         </button>
       </div>
 
-      <form v-if="!twoFactorActive" class="auth-form" @submit.prevent="handleLogin">
+      <div v-if="!twoFactorActive" class="oauth-entry">
+        <OAuthButtons @completed="handleOAuthCompleted" />
+      </div>
+
+      
+<form v-if="!twoFactorActive" class="auth-form" @submit.prevent="handleLogin">
             <div class="form-group">
               <label for="email">{{ $t('common.email') }} <span class="required">*</span></label>
               <div class="input-with-icon">
@@ -218,9 +223,11 @@
 
 <script>
 import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@/composables/useToast';
+import OAuthButtons from '@/components/common/OAuthButtons.vue';
+import { completeOAuth } from '@/api/auth';
 import ThemeToggle from '@/components/common/ThemeToggle.vue';
 import LanguageSelector from '@/components/common/LanguageSelector.vue';
 import IconMail from '@/components/icons/IconMail.vue';
@@ -255,6 +262,7 @@ export default {
 
   setup() {
     const router = useRouter();
+  const route = useRoute();
     const { t } = useI18n();
     const { showToast } = useToast();
     const { goTo } = useNavigator()
@@ -337,7 +345,97 @@ export default {
         onUnmounted(() => {
           if (twoFactorTimer) window.clearInterval(twoFactorTimer);
         });
+// ---- 第三方登录 ----
+
+const handleOAuthCompleted = (data) => {
+
+  if (data.auth_data || data.token) {
+
+    showToast(t('auth.loginSuccess'), 'success', 3000);
+
+    setTimeout(() => router.push('/dashboard'), 300);
+
+    return;
+
+  }
+
+  if (data.link_required) {
+
+    showToast(t('auth.oauth.linkRequired'), 'error');
+
+    return;
+
+  }
+
+  if (Array.isArray(data.requirements) && data.requirements.length) {
+
+    showToast(t('auth.oauth.needMore', { fields: data.requirements.join(', ') }), 'error');
+
+    return;
+
+  }
+
+  showToast(t('auth.oauth.needMoreGeneric'), 'error');
+
+};
+
+const handleOAuthCallback = async () => {
+
+  const ticket = route.query.oauth_ticket;
+
+  const errorCode = route.query.oauth_error;
+
+  if (!ticket && !errorCode) return;
+
+  // 先把 query 清掉，避免刷新时重放这次登录
+
+  const rest = { ...route.query };
+
+  delete rest.oauth_ticket;
+
+  delete rest.oauth_error;
+
+  delete rest.telegram_state;
+
+  router.replace({ path: route.path, query: rest });
+
+  if (errorCode) {
+
+    showToast(t('auth.oauth.completeFailed'), 'error');
+
+    return;
+
+  }
+
+  let provider = 'google';
+
+  try {
+
+    provider = localStorage.getItem('oauth_provider') || provider;
+
+  } catch (e) {
+
+    // 读不到就用兜底值
+
+  }
+
+  try {
+
+    const response = await completeOAuth({ provider, ticket: String(ticket) });
+
+    handleOAuthCompleted(response?.data || {});
+
+  } catch (err) {
+
+    showToast(err?.response?.message || err?.message || t('auth.oauth.completeFailed'), 'error');
+
+  }
+
+};
+
     onMounted(async () => {
+      await handleOAuthCallback();
+
 
 
       const hasToken = hasVerifyToken();
@@ -1322,6 +1420,11 @@ const submitTwoFactor = async () => {
       cursor: not-allowed;
     }
   }
+}
+
+
+.oauth-entry {
+  margin-bottom: 20px;
 }
 
 </style>
