@@ -1,6 +1,15 @@
 ﻿import request from './request';
 
 
+// 落地页用：公开套餐列表（不需要登录）
+export function fetchGuestPlans() {
+  return request({
+    url: '/guest/plan/fetch',
+    method: 'get'
+  });
+}
+
+
 export function fetchPlans() {
   return request({
     url: '/user/plan/fetch',

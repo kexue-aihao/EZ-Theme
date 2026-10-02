@@ -1,6 +1,6 @@
 ﻿<template>
 
-  <div class="landing-page" :class="{ 'dark-theme': isDarkTheme }" @wheel="handleWheel" @scroll="handleScroll" ref="landingPageRef">
+  <div class="landing-page" :class="{ 'dark-theme': isDarkTheme }" ref="landingPageRef">
 
 
 
@@ -27,6 +27,10 @@
       <ThemeToggle />
 
       <LanguageSelector />
+      <button type="button" class="landing-login-button" @click="navigateToLogin">
+        {{ $t('common.login') }}
+      </button>
+
 
     </div>
 
@@ -52,7 +56,7 @@
 
     <!-- 底部箭头 -->
 
-    <div class="scroll-arrow-container" @click="navigateToLogin">
+    <div class="scroll-arrow-container" @click="scrollToPlans">
 
       <div class="scroll-arrow">
 
@@ -60,12 +64,119 @@
 
       </div>
 
-      <div class="scroll-text">{{ $t('landing.scrollText') }}</div>
+      <div class="scroll-text">{{ $t('landing.scrollToPlans') }}</div>
 
     </div>
 
     
 
+    <!-- 套餐区 -->
+    <section id="plans" ref="plansSectionRef" class="landing-plans" aria-labelledby="landing-plans-title">
+      <div class="plans-header">
+        <h2 id="landing-plans-title" class="plans-title">{{ $t('landing.plans.title') }}</h2>
+        <p class="plans-note">{{ $t('landing.plans.note') }}</p>
+      </div>
+
+      <div class="period-toggle" role="tablist" :aria-label="$t('landing.plans.title')">
+        <button
+          v-for="option in periodOptions"
+          :key="option.key"
+          type="button"
+          role="tab"
+          class="period-option"
+          :class="{ active: period === option.key }"
+          :aria-selected="period === option.key ? 'true' : 'false'"
+          @click="period = option.key"
+        >
+          {{ $t(option.labelKey) }}
+        </button>
+      </div>
+
+      <div v-if="orderError" class="plans-alert" role="alert">{{ orderError }}</div>
+
+      <div class="plans-grid" aria-live="polite">
+        <template v-if="plansLoading">
+          <div
+            v-for="n in 3"
+            :key="'skeleton-' + n"
+            class="plan-card plan-skeleton"
+            aria-hidden="true"
+          >
+            <div class="skeleton-line skeleton-badge"></div>
+            <div class="skeleton-line skeleton-title"></div>
+            <div class="skeleton-line skeleton-price"></div>
+            <div class="skeleton-line"></div>
+            <div class="skeleton-line"></div>
+          </div>
+        </template>
+
+        <div v-else-if="plansError" class="plans-message">
+          <p>{{ plansError }}</p>
+          <button type="button" class="plans-retry-button" @click="fetchPlans">
+            {{ $t('landing.plans.retry') }}
+          </button>
+        </div>
+
+        <template v-else-if="visiblePlans.length">
+          <div
+            v-for="(plan, index) in visiblePlans"
+            :key="plan.id"
+            class="plan-card"
+            :class="{ featured: index === 1 }"
+          >
+            <div class="plan-card-top">
+              <span class="plan-index">0{{ index + 1 }}</span>
+              <span v-if="index === 1" class="plan-badge">{{ $t('landing.plans.featured') }}</span>
+            </div>
+
+            <h3 class="plan-name">{{ plan.name }}</h3>
+
+            <div class="plan-price">
+              <template v-if="hasPrice(plan)">
+                <span class="plan-price-amount">¥{{ formatAmount(priceOf(plan)) }}</span>
+                <span class="plan-price-period">/ {{ $t(currentPeriodLabelKey) }}</span>
+              </template>
+              <span v-else class="plan-price-period">--</span>
+            </div>
+
+            <div class="plan-meta">
+              <div class="plan-meta-item">
+                <span class="plan-meta-label">{{ $t('landing.plans.traffic') }}</span>
+                <span class="plan-meta-value">{{ transferLabel(plan) }}</span>
+              </div>
+              <div class="plan-meta-item">
+                <span class="plan-meta-label">{{ $t('landing.plans.devices') }}</span>
+                <span class="plan-meta-value">{{ deviceLabel(plan) }}</span>
+              </div>
+            </div>
+
+            <ul class="plan-features">
+              <li v-for="(feature, i) in features(plan)" :key="i">{{ feature }}</li>
+            </ul>
+
+            <button
+              type="button"
+              class="plan-buy-button"
+              :disabled="!hasPrice(plan) || isSoldOut(plan) || busyPlanId === plan.id"
+              @click="buy(plan)"
+            >
+              {{
+                isSoldOut(plan)
+                  ? $t('landing.plans.soldOut')
+                  : busyPlanId === plan.id ? $t('landing.plans.processing') : $t('landing.plans.buy')
+              }}
+            </button>
+          </div>
+        </template>
+
+        <div v-else class="plans-message">
+          <p>{{ $t('landing.plans.empty') }}</p>
+          <button type="button" class="plans-retry-button" @click="fetchPlans">
+            {{ $t('landing.plans.retry') }}
+          </button>
+        </div>
+      </div>
+    </section>
     <!-- 页面过渡遮罩 -->
 
     <div class="page-transition-mask" :class="{ 'active': isTransitioning }"></div>
@@ -94,6 +205,9 @@ import ThemeToggle from '@/components/common/ThemeToggle.vue';
 import LanguageSelector from '@/components/common/LanguageSelector.vue';
 
 import { IconChevronDown } from '@tabler/icons-vue';
+import { fetchGuestPlans, submitOrder } from '@/api/shop';
+import { checkLoginStatus } from '@/api/auth';
+import { savePendingPurchase } from '@/utils/pendingPurchase';
 
 import DomainAuthAlert from '@/components/common/DomainAuthAlert.vue';
 
@@ -144,30 +258,6 @@ export default {
 
     
 
-    const handleScroll = (e) => {
-
-      if (e.currentTarget === landingPageRef.value && window.scrollY > 100) {
-
-        navigateToLogin();
-
-      }
-
-    };
-
-    
-
-    const handleWheel = (e) => {
-
-      if (e.currentTarget === landingPageRef.value && e.deltaY > 0) {
-
-        navigateToLogin();
-
-      }
-
-    };
-
-    
-
     const navigateToLogin = () => {
 
       if (isTransitioning.value) {
@@ -199,92 +289,208 @@ export default {
 
     
 
-    let touchStartY = 0;
+    // ---- 套餐区（公开接口，未登录也能看）----
 
-    let handleTouchStart, handleTouchMove;
+    const plansSectionRef = ref(null);
 
-    
+    const plans = ref([]);
+
+    const plansLoading = ref(false);
+
+    const plansError = ref('');
+
+    const orderError = ref('');
+
+    const busyPlanId = ref(null);
+
+    const period = ref('month_price');
+
+    const periodOptions = [
+
+      { key: 'month_price', labelKey: 'landing.plans.periods.month' },
+
+      { key: 'quarter_price', labelKey: 'landing.plans.periods.quarter' },
+
+      { key: 'half_year_price', labelKey: 'landing.plans.periods.halfYear' },
+
+      { key: 'year_price', labelKey: 'landing.plans.periods.year' }
+
+    ];
+
+    const currentPeriodLabelKey = computed(() => {
+
+      const option = periodOptions.find((item) => item.key === period.value);
+
+      return option ? option.labelKey : periodOptions[0].labelKey;
+
+    });
+
+    const visiblePlans = computed(() =>
+
+      plans.value.filter((plan) => plan.show !== 0 && plan.show !== false)
+
+    );
+
+    const scrollToPlans = () => {
+
+      plansSectionRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    };
+
+    const fetchPlans = async () => {
+
+      plansLoading.value = true;
+
+      plansError.value = '';
+
+      try {
+
+        const response = await fetchGuestPlans();
+
+        plans.value = Array.isArray(response?.data) ? response.data : [];
+
+      } catch (err) {
+
+        plansError.value = err?.response?.message || err?.message || t('landing.plans.loadFailed');
+
+      } finally {
+
+        plansLoading.value = false;
+
+      }
+
+    };
+
+    const priceOf = (plan) => plan[period.value];
+
+    const hasPrice = (plan) => priceOf(plan) !== null && priceOf(plan) !== undefined;
+
+    const isSoldOut = (plan) =>
+
+      plan.capacity_limit !== null && plan.capacity_limit !== undefined && plan.capacity_limit <= 0;
+
+    // 后端价格以分为单位
+
+    const formatAmount = (amount) => (Number(amount) / 100).toFixed(2);
+
+    const transferLabel = (plan) =>
+
+      plan.transfer_enable > 0
+
+        ? t('landing.plans.trafficAmount', { count: plan.transfer_enable })
+
+        : t('landing.plans.unlimited');
+
+    const deviceLabel = (plan) =>
+
+      plan.device_limit > 0
+
+        ? t('landing.plans.deviceAmount', { count: plan.device_limit })
+
+        : t('landing.plans.unlimited');
+
+    const features = (plan) => {
+
+      const lines = String(plan.content || '')
+
+        .split('\n')
+
+        .map((line) => line.trim())
+
+        .filter(Boolean)
+
+        .slice(0, 4);
+
+      return lines.length ? lines : [t('landing.plans.defaultFeature')];
+
+    };
+
+    const buy = async (plan) => {
+
+      if (!hasPrice(plan) || isSoldOut(plan) || busyPlanId.value === plan.id) return;
+
+      busyPlanId.value = plan.id;
+
+      orderError.value = '';
+
+      // 没登录：先把想买什么记下来，登录/注册成功后接着下单
+
+      if (!checkLoginStatus()) {
+
+        savePendingPurchase(plan.id, period.value);
+
+        busyPlanId.value = null;
+
+        router.push('/register');
+
+        return;
+
+      }
+
+      try {
+
+        const response = await submitOrder({ plan_id: Number(plan.id), period: period.value });
+
+        const tradeNo = response?.data;
+
+        if (tradeNo) {
+
+          router.push({ path: '/payment', query: { trade_no: tradeNo } });
+
+        } else {
+
+          orderError.value = response?.message || t('landing.plans.loadFailed');
+
+        }
+
+      } catch (err) {
+
+        orderError.value = err?.response?.message || err?.message;
+
+      } finally {
+
+        busyPlanId.value = null;
+
+      }
+
+    };
 
     onMounted(() => {
 
-
-
-      
-
-      handleTouchStart = (e) => {
-
-        if (e.currentTarget === landingPageRef.value || landingPageRef.value.contains(e.target)) {
-
-          touchStartY = e.touches[0].clientY;
-
-        }
-
-      };
-
-      
-
-      handleTouchMove = (e) => {
-
-        if (e.currentTarget === landingPageRef.value || landingPageRef.value.contains(e.target)) {
-
-          const touchY = e.touches[0].clientY;
-
-          if (touchStartY - touchY > 50) { 
-            navigateToLogin();
-
-          }
-
-        }
-
-      };
-
-      
-
-      if (landingPageRef.value) {
-
-        landingPageRef.value.addEventListener('touchstart', handleTouchStart, { passive: true });
-
-        landingPageRef.value.addEventListener('touchmove', handleTouchMove, { passive: true });
-
-      }
+      fetchPlans();
 
     });
 
-    
-
-    onUnmounted(() => {
-
-      if (landingPageRef.value) {
-
-        landingPageRef.value.removeEventListener('touchstart', handleTouchStart);
-
-        landingPageRef.value.removeEventListener('touchmove', handleTouchMove);
-
-      }
-
-    });
 
     
 
     return {
-
       landingPageRef,
-
       siteConfig,
-
       defaultConfig,
-
       isDarkTheme,
-
       isTransitioning,
-
       navigateToLogin,
-
-      handleScroll,
-
-      handleWheel,
-
-
+      plansSectionRef,
+      plans,
+      plansLoading,
+      plansError,
+      orderError,
+      busyPlanId,
+      period,
+      periodOptions,
+      currentPeriodLabelKey,
+      visiblePlans,
+      scrollToPlans,
+      fetchPlans,
+      priceOf,
+      hasPrice,
+      isSoldOut,
+      formatAmount,
+      transferLabel,
+      deviceLabel,
+      features,
+      buy,
     };
 
   }
@@ -303,9 +509,9 @@ export default {
 
   width: 100%;
 
-  height: 100vh;
+  min-height: 100vh;
 
-  overflow: hidden;
+  overflow-x: hidden;
 
   display: flex;
 
@@ -770,6 +976,349 @@ export default {
 
   }
 
+}
+
+
+.landing-hero {
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.landing-login-button {
+  min-height: 36px;
+  padding: 6px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--card-background);
+  color: var(--text-color);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--theme-color);
+    transform: translateY(-1px);
+    outline: none;
+  }
+}
+
+.landing-plans {
+  position: relative;
+  z-index: 10;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 60px 20px 80px;
+}
+
+.plans-header {
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.plans-title {
+  margin: 0 0 10px;
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  color: var(--text-color);
+}
+
+.plans-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--secondary-text-color);
+}
+
+.plans-alert {
+  max-width: 600px;
+  margin: 0 auto 20px;
+  padding: 12px 16px;
+  border: 1px solid var(--error-color);
+  border-radius: 12px;
+  background: rgba(var(--theme-color-rgb), 0.05);
+  color: var(--error-color);
+  font-size: 14px;
+  text-align: center;
+}
+
+.plans-message {
+  grid-column: 1 / -1;
+  padding: 40px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--card-background);
+  text-align: center;
+  color: var(--secondary-text-color);
+
+  p {
+    margin: 0 0 16px;
+  }
+}
+
+.plans-retry-button {
+  min-height: 36px;
+  padding: 6px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--theme-color);
+  color: var(--on-theme-color, #fff);
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    opacity: 0.9;
+    outline: none;
+  }
+}
+
+.period-toggle {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 30px;
+}
+
+.period-option {
+  min-height: 36px;
+  padding: 6px 18px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--card-background);
+  color: var(--secondary-text-color);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--theme-color);
+    outline: none;
+  }
+
+  &.active {
+    border-color: var(--theme-color);
+    background: rgba(var(--theme-color-rgb), 0.1);
+    color: var(--theme-color);
+    font-weight: 600;
+  }
+}
+
+.plans-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+}
+
+.plan-card {
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--card-background);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+  transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    border-color: var(--theme-color);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.08);
+  }
+
+  &.featured {
+    border: 2px solid var(--theme-color);
+  }
+}
+
+.plan-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.plan-index {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--secondary-text-color);
+}
+
+.plan-badge {
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: rgba(var(--theme-color-rgb), 0.1);
+  color: var(--theme-color);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.plan-name {
+  margin: 0 0 12px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text-color);
+  word-wrap: break-word;
+}
+
+.plan-price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.plan-price-amount {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-color);
+}
+
+.plan-price-period {
+  font-size: 13px;
+  color: var(--secondary-text-color);
+}
+
+.plan-meta {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgba(var(--theme-color-rgb), 0.05);
+  margin-bottom: 16px;
+}
+
+.plan-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.plan-meta-label {
+  font-size: 12px;
+  color: var(--secondary-text-color);
+}
+
+.plan-meta-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-color);
+}
+
+.plan-features {
+  list-style: none;
+  margin: 0 0 20px;
+  padding: 0;
+  flex: 1;
+
+  li {
+    position: relative;
+    padding: 4px 0 4px 18px;
+    font-size: 14px;
+    color: var(--secondary-text-color);
+
+    &:before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 12px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--theme-color);
+    }
+  }
+}
+
+.plan-buy-button {
+  min-height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--theme-color);
+  color: var(--on-theme-color, #fff);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+
+  &:hover:not(:disabled),
+  &:focus-visible:not(:disabled) {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    outline: none;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.plan-skeleton {
+  pointer-events: none;
+}
+
+.skeleton-line {
+  height: 14px;
+  margin-bottom: 14px;
+  border-radius: 7px;
+  background: rgba(var(--theme-color-rgb), 0.08);
+  animation: skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-badge {
+  width: 40%;
+}
+
+.skeleton-title {
+  width: 70%;
+  height: 20px;
+}
+
+.skeleton-price {
+  width: 55%;
+  height: 26px;
+}
+
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1024px) {
+  .plans-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .plans-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .landing-plans {
+    padding: 40px 16px 60px;
+  }
+
+  .plans-title {
+    font-size: 26px;
+  }
 }
 
 </style> 
