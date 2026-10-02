@@ -162,6 +162,19 @@
                             </div>
 
                             <div class="ticket-actions">
+
+                                <button
+                                    class="refresh-btn"
+                                    :disabled="refreshingDetail"
+                                    :title="$t('tickets.refresh')"
+                                    @click="refreshTicketDetail"
+                                >
+                                    <IconRefresh
+                                        :size="16"
+                                        :class="{ 'refreshing-icon': refreshingDetail }"
+                                    />
+                                    {{ $t('tickets.refresh') }}
+                                </button>
                                 <button
                                     v-if="selectedTicket.status === 0"
                                     class="close-ticket-btn"
@@ -683,7 +696,8 @@ import {
     IconCircleCheck,
     IconCircle,
     IconDeviceMobile,
-    IconPhotoPlus
+    IconPhotoPlus,
+    IconRefresh
 } from '@tabler/icons-vue';
 
 import {
@@ -1064,6 +1078,28 @@ const submitTicket = async () => {
     } finally {
         isSubmitting.value = false;
     }
+};
+
+const refreshingDetail = ref(false);
+
+const refreshTicketDetail = async () => {
+
+    if (!selectedTicket.value?.id || refreshingDetail.value) return;
+
+    refreshingDetail.value = true;
+
+    try {
+
+        // 手动刷新不闪骨架屏：转圈交给按钮自己（所以按自动刷新处理）
+
+        await fetchTicketDetail(selectedTicket.value.id, true);
+
+    } finally {
+
+        refreshingDetail.value = false;
+
+    }
+
 };
 
 const fetchTicketDetail = async (ticketId, isAutoRefresh = false) => {
@@ -2957,4 +2993,31 @@ onUnmounted(() => {
 .reply-tools .send-reply-btn {
     width: 100%; /* 按钮填满右侧容器宽度 */
 }
+
+.ticket-detail-header .ticket-actions .refresh-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: 6px;
+    background-color: rgba(var(--theme-color-rgb), 0.1);
+    color: var(--theme-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover:not(:disabled) {
+        background-color: rgba(var(--theme-color-rgb), 0.2);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .refreshing-icon {
+        animation: spin 1s linear infinite;
+    }
+}
+
 </style>
