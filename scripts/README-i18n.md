@@ -37,7 +37,13 @@ node scripts/i18n-insert-keys.mjs --apply
 
 # 5) 验收（两套 locale 的 key 集合 + 文案是否逐字来自产物）
 node scripts/i18n-verify.mjs
+
+# 6) 构建，并确认文案真的进了产物（构建不可复现，这是「逐字节比对」的替代）
+npm run build && node scripts/verify-dist-coverage.mjs
 ```
+
+`verify-dist-coverage.mjs` 会先把产物里的 `\xHH` / `\uHHHH` 转义解回来再比 —— Terser 对
+非 ASCII 是两种写法混用的，按 `\uXXXX` 去猜必然误报（踩过）。
 
 分语言 chunk 号：zh-CN=`8488`、en-US=`5442`、zh-TW=`3744`、ja-JP=`7018`、ko-KR=`1900`、
 ru-RU=`7121`、fa-IR=`6015`、vi-VN=`7300`；auth 集统一在 `8153`。
