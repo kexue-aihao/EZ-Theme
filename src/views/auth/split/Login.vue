@@ -43,7 +43,85 @@
             <p class="auth-subtitle">{{ $t('auth.loginSubtitle') }}</p>
           </div>
 
-          <form class="auth-form" @submit.prevent="handleLogin">
+          <div v-if="twoFactorActive" class="two-factor-challenge">
+        <h2 class="challenge-title">{{ $t('auth.twoFactor.title') }}</h2>
+        <p class="challenge-subtitle">
+          {{
+            twoFactorSetupToken
+              ? $t('auth.twoFactor.setupSubtitle')
+              : $t('auth.twoFactor.subtitle')
+          }}
+        </p>
+
+        <template v-if="twoFactorSetupToken">
+          <img
+            v-if="twoFactorSetup && twoFactorSetup.qr_code"
+            :src="twoFactorSetup.qr_code"
+            class="challenge-qr"
+            alt="2FA"
+          />
+          <p v-else class="challenge-hint">{{ $t('auth.twoFactor.manualOnly') }}</p>
+          <div v-if="twoFactorSetup" class="challenge-key">{{ twoFactorSetup.manual_key }}</div>
+          <p v-if="twoFactorSetup" class="challenge-hint">
+            {{ $t('auth.twoFactor.issuer') }}: {{ twoFactorSetup.issuer }}
+            · {{ $t('auth.twoFactor.account') }}: {{ twoFactorSetup.account }}
+          </p>
+        </template>
+
+        <button
+          v-else
+          type="button"
+          class="challenge-toggle"
+          @click="twoFactorUseRecovery = !twoFactorUseRecovery"
+        >
+          {{
+            twoFactorUseRecovery
+              ? $t('auth.twoFactor.useAuthenticator')
+              : $t('auth.twoFactor.useRecovery')
+          }}
+        </button>
+
+        <div v-if="!twoFactorSetupToken && twoFactorUseRecovery" class="challenge-group">
+          <label>{{ $t('auth.twoFactor.recoveryCode') }}</label>
+          <input
+            type="text"
+            autocomplete="one-time-code"
+            v-model="twoFactorRecovery"
+            :placeholder="$t('auth.twoFactor.recoveryCodePlaceholder')"
+            @keyup.enter="submitTwoFactor"
+          />
+        </div>
+        <div v-else class="challenge-group">
+          <label>{{ $t('auth.twoFactor.code') }}</label>
+          <input
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            v-model="twoFactorCode"
+            :placeholder="$t('auth.twoFactor.codePlaceholder')"
+            @keyup.enter="submitTwoFactor"
+          />
+        </div>
+
+        <p v-if="twoFactorError" class="challenge-error">{{ twoFactorError }}</p>
+        <p v-if="twoFactorSecondsLeft" class="challenge-expire">
+          {{ $t('auth.twoFactor.expiresIn', { seconds: twoFactorSecondsLeft }) }}
+        </p>
+
+        <button
+          type="button"
+          class="challenge-submit"
+          :disabled="twoFactorBusy"
+          @click="submitTwoFactor"
+        >
+          {{ $t('auth.twoFactor.verify') }}
+        </button>
+        <button type="button" class="challenge-back" @click="cancelTwoFactor">
+          {{ $t('auth.twoFactor.back') }}
+        </button>
+      </div>
+
+      <form v-if="!twoFactorActive" class="auth-form" @submit.prevent="handleLogin">
             <div class="form-group">
               <label for="email">{{ $t('common.email') }} <span class="required">*</span></label>
               <div class="input-with-icon">
@@ -139,7 +217,7 @@
 </template>
 
 <script>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@/composables/useToast';
@@ -151,6 +229,7 @@ import IconArrowRight from '@/components/icons/IconArrowRight.vue';
 import IconEye from '@/components/icons/IconEye.vue';
 import IconEyeOff from '@/components/icons/IconEyeOff.vue';
 import { login, checkLoginStatus } from '@/api/auth';
+import { verifyTwoFactor, setupTwoFactorLogin, confirmTwoFactorLogin } from '@/api/auth';
 import { validateEmail, validateRequired } from '@/utils/validators';
 
 import DomainAuthAlert from '@/components/common/DomainAuthAlert.vue';
@@ -255,6 +334,9 @@ export default {
       return color.toLowerCase() === 'black' ? 'black' : 'white';
     });
 
+        onUnmounted(() => {
+          if (twoFactorTimer) window.clearInterval(twoFactorTimer);
+        });
     onMounted(async () => {
 
 
@@ -340,6 +422,172 @@ export default {
       return isValid;
     };
 
+// ---- 登录时的两步验证 ----
+
+const twoFactorChallenge = ref('');
+
+const twoFactorSetupToken = ref('');
+
+const twoFactorSetup = ref(null);
+
+const twoFactorCode = ref('');
+
+const twoFactorRecovery = ref('');
+
+const twoFactorUseRecovery = ref(false);
+
+const twoFactorBusy = ref(false);
+
+const twoFactorError = ref('');
+
+const twoFactorExpiresAt = ref(0);
+
+const twoFactorNow = ref(Math.floor(Date.now() / 1000));
+
+let twoFactorTimer = null;
+
+const twoFactorActive = computed(() => Boolean(twoFactorChallenge.value || twoFactorSetupToken.value));
+
+const twoFactorSecondsLeft = computed(() =>
+
+  twoFactorExpiresAt.value ? Math.max(0, twoFactorExpiresAt.value - twoFactorNow.value) : 0
+
+);
+
+const startTwoFactor = async (data) => {
+
+  twoFactorError.value = '';
+
+  twoFactorCode.value = '';
+
+  twoFactorRecovery.value = '';
+
+  twoFactorUseRecovery.value = false;
+
+  twoFactorExpiresAt.value = data.expires_in
+
+    ? Math.floor(Date.now() / 1000) + Number(data.expires_in)
+
+    : 0;
+
+  twoFactorNow.value = Math.floor(Date.now() / 1000);
+
+  if (!twoFactorTimer) {
+
+    twoFactorTimer = window.setInterval(() => {
+
+      twoFactorNow.value = Math.floor(Date.now() / 1000);
+
+    }, 1000);
+
+  }
+
+  if (data.two_factor_setup_required) {
+
+    // 管理员/员工首次登录必须先绑定：拿二维码（接口只对他们开放）
+
+    twoFactorSetupToken.value = String(data.setup_token || '');
+
+    twoFactorSetup.value = null;
+
+    try {
+
+      const response = await setupTwoFactorLogin({ setup_token: twoFactorSetupToken.value });
+
+      twoFactorSetup.value = response?.data || null;
+
+    } catch (err) {
+
+      twoFactorError.value = err?.response?.message || err?.message || t('auth.twoFactor.expired');
+
+    }
+
+    return;
+
+  }
+
+  twoFactorChallenge.value = String(data.challenge || '');
+
+};
+
+const cancelTwoFactor = () => {
+
+  twoFactorChallenge.value = '';
+
+  twoFactorSetupToken.value = '';
+
+  twoFactorSetup.value = null;
+
+  twoFactorCode.value = '';
+
+  twoFactorRecovery.value = '';
+
+  twoFactorError.value = '';
+
+};
+
+const submitTwoFactor = async () => {
+
+  if (twoFactorBusy.value) return;
+
+  twoFactorError.value = '';
+
+  const isSetup = Boolean(twoFactorSetupToken.value);
+
+  if (!isSetup && twoFactorUseRecovery.value) {
+
+    if (!twoFactorRecovery.value.trim()) {
+
+      twoFactorError.value = t('auth.twoFactor.enterRecovery');
+
+      return;
+
+    }
+
+  } else if (!/^\d{6}$/.test(twoFactorCode.value.trim())) {
+
+    twoFactorError.value = t('auth.twoFactor.enterSixDigits');
+
+    return;
+
+  }
+
+  twoFactorBusy.value = true;
+
+  try {
+
+    if (isSetup) {
+
+      await confirmTwoFactorLogin({ setup_token: twoFactorSetupToken.value, code: twoFactorCode.value.trim() });
+
+    } else if (twoFactorUseRecovery.value) {
+
+      await verifyTwoFactor({ challenge: twoFactorChallenge.value, recovery_code: twoFactorRecovery.value.trim() });
+
+    } else {
+
+      await verifyTwoFactor({ challenge: twoFactorChallenge.value, code: twoFactorCode.value.trim() });
+
+    }
+
+    showToast(t('auth.loginSuccess'), 'success', 3000);
+
+    setTimeout(() => router.push('/dashboard'), 300);
+
+  } catch (err) {
+
+    twoFactorError.value =
+
+      err?.response?.message || err?.message || t('auth.twoFactor.invalidCode');
+
+  } finally {
+
+    twoFactorBusy.value = false;
+
+  }
+
+};
+
     const handleLogin = async () => {
       if (!validateForm()) {
         return;
@@ -349,6 +597,19 @@ export default {
 
       try {
         const response = await login(formData);
+
+        
+        const authPayload = response?.data ?? response ?? {};
+
+        // 两步验证：这里不算登录成功，交给下面的验证界面
+
+        if (authPayload.two_factor_required || authPayload.two_factor_setup_required) {
+
+          await startTwoFactor(authPayload);
+
+          return;
+
+        }
 
         showToast(response.message || t('auth.loginSuccess'), 'success', 3000);
 
@@ -378,6 +639,18 @@ export default {
 
     return {
       formData,
+          twoFactorActive,
+          twoFactorChallenge,
+          twoFactorSetupToken,
+          twoFactorSetup,
+          twoFactorCode,
+          twoFactorRecovery,
+          twoFactorUseRecovery,
+          twoFactorBusy,
+          twoFactorError,
+          twoFactorSecondsLeft,
+          submitTwoFactor,
+          cancelTwoFactor,
       errors,
       loading,
       showPassword,
@@ -949,4 +1222,106 @@ export default {
     justify-content: flex-start;
   }
 }
+
+.two-factor-challenge {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  .challenge-title {
+    margin: 0;
+    font-size: 20px;
+    color: var(--text-color);
+  }
+
+  .challenge-subtitle,
+  .challenge-hint {
+    margin: 0;
+    color: var(--secondary-text-color);
+    font-size: 14px;
+  }
+
+  .challenge-qr {
+    align-self: center;
+    width: 180px;
+    height: 180px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .challenge-key {
+    padding: 12px 14px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background: rgba(var(--theme-color-rgb), 0.05);
+    font-family: SFMono-Regular, Consolas, monospace;
+    font-size: 13px;
+    word-break: break-all;
+    user-select: all;
+    color: var(--text-color);
+  }
+
+  .challenge-toggle,
+  .challenge-back {
+    align-self: flex-start;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--theme-color);
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .challenge-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+
+    label {
+      font-size: 13px;
+      color: var(--text-color);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: var(--card-background);
+      color: var(--text-color);
+      font-size: 15px;
+    }
+  }
+
+  .challenge-error {
+    margin: 0;
+    color: var(--error-color);
+    font-size: 13px;
+  }
+
+  .challenge-expire {
+    margin: 0;
+    color: var(--secondary-text-color);
+    font-size: 12px;
+  }
+
+  .challenge-submit {
+    min-height: 44px;
+    border: none;
+    border-radius: 10px;
+    background: var(--theme-color);
+    color: var(--on-theme-color, #fff);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  }
+}
+
 </style>

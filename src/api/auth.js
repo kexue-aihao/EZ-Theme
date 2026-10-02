@@ -332,6 +332,32 @@ export function verifyArithmeticChallenge(challengeId, answer) {
 }
 
 
+// 登录时的两步验证
+export function verifyTwoFactor(data) {
+  return request({
+    url: '/passport/auth/verify2fa',
+    method: 'post',
+    data
+  });
+}
+
+export function setupTwoFactorLogin(data) {
+  return request({
+    url: '/passport/auth/2fa/setup',
+    method: 'post',
+    data
+  });
+}
+
+export function confirmTwoFactorLogin(data) {
+  return request({
+    url: '/passport/auth/2fa/confirm',
+    method: 'post',
+    data
+  });
+}
+
+
 export function sendEmailVerify(data) {
   const sendData = { ...data };
   
