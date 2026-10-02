@@ -456,6 +456,55 @@
 
 
 
+        <div class="profile-card telegram-binding-card" v-if="telegramBindingEnabled">
+          <div class="card-header">
+            <h3>{{ $t('profile.telegramBinding.title') }}</h3>
+          </div>
+          <div class="settings-content">
+            <p class="binding-status binding-active" v-if="currentTelegramBinding?.status === 'active'">
+              {{ $t('profile.telegramBinding.bound', { username: currentTelegramBinding.telegram_username || $t('profile.telegramBinding.noUsername') }) }}
+            </p>
+            <p class="binding-status binding-invalid" v-else-if="currentTelegramBinding">
+              {{ $t('profile.telegramBinding.invalid', { reason: $t(bindingInvalidReasonKey) }) }}
+            </p>
+            <p class="binding-status" v-else>
+              {{ $t('profile.telegramBinding.hint') }}
+            </p>
+
+            <select v-model="selectedBindingSubscription" class="binding-select">
+              <option :value="null">{{ $t('profile.telegramBinding.selectPlaceholder') }}</option>
+              <option v-for="item in subscriptionList" :key="item.id" :value="item.id">
+                {{ item.plan_name || item.plan?.name || $t('profile.telegramBinding.subscriptionFallback', { id: item.id }) }}
+              </option>
+            </select>
+
+            <div class="action-buttons">
+              <button
+                class="action-btn"
+                :disabled="bindingGenerating || !selectedBindingSubscription"
+                @click="handleGenerateTelegramBinding"
+              >
+                {{ $t('profile.telegramBinding.generate') }}
+              </button>
+              <button
+                class="action-btn danger"
+                v-if="currentTelegramBinding?.status === 'active'"
+                :disabled="bindingGenerating"
+                @click="handleRevokeTelegramBinding"
+              >
+                {{ $t('profile.telegramBinding.revoke') }}
+              </button>
+            </div>
+
+            <div v-if="bindingLink" class="subscription-info">
+              <div class="subscription-url">{{ bindingLink }}</div>
+              <button class="action-btn" @click="handleCopyTelegramBindingLink">
+                {{ $t('profile.telegramBinding.copyLink') }}
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 订阅管理 -->
 
         <div class="profile-card" v-if="showImportSubscription">
@@ -811,7 +860,16 @@ import {
 
   getTelegramBotInfo,
 
-  getUserSubscribe
+  getUserSubscribe,
+
+  getSubscriptionList,
+
+  getTelegramBinding,
+
+  prepareTelegramBinding,
+
+  revokeTelegramBinding
+
 
 } from '@/api/user';
 
@@ -911,6 +969,16 @@ const telegramConfig = ref({
 const telegramBotInfo = ref(null);
 
 const loadingTelegram = ref(false);
+
+const telegramBindingInfo = ref(null);
+
+const subscriptionList = ref([]);
+
+const selectedBindingSubscription = ref(null);
+
+const bindingLink = ref('');
+
+const bindingGenerating = ref(false);
 
 const telegramError = ref('');
 
@@ -1067,6 +1135,146 @@ const fetchSubscribeInfo = async () => {
 };
 
 
+
+const telegramBindingEnabled = computed(() => Boolean(telegramBindingInfo.value?.enabled));
+
+const currentTelegramBinding = computed(() => telegramBindingInfo.value?.binding || null);
+
+// 产物只认这五种原因，其余一律归到 unknown
+
+const BINDING_INVALID_REASONS = [
+
+  'telegram_username_changed',
+
+  'subscription_changed',
+
+  'user_revoked',
+
+  'binding_group_changed',
+
+  'binding_feature_disabled'
+
+];
+
+const bindingInvalidReasonKey = computed(() => {
+
+  const reason = String(currentTelegramBinding.value?.invalid_reason || '');
+
+  return 'profile.telegramBinding.reasons.' + (BINDING_INVALID_REASONS.includes(reason) ? reason : 'unknown');
+
+});
+
+const fetchTelegramBinding = async () => {
+
+  try {
+
+    const [bindingResponse, subscriptionResponse] = await Promise.all([getTelegramBinding(), getSubscriptionList()]);
+
+    telegramBindingInfo.value = bindingResponse?.data || null;
+
+    subscriptionList.value = subscriptionResponse?.data || [];
+
+  } catch (err) {
+
+    console.error('Failed to fetch telegram binding:', err);
+
+    telegramBindingInfo.value = null;
+
+    subscriptionList.value = [];
+
+  }
+
+};
+
+const handleGenerateTelegramBinding = async () => {
+
+  if (!selectedBindingSubscription.value || bindingGenerating.value) return;
+
+  bindingGenerating.value = true;
+
+  try {
+
+    const response = await prepareTelegramBinding(selectedBindingSubscription.value);
+
+    bindingLink.value = String(response?.data?.binding_url || '');
+
+    if (!bindingLink.value) {
+
+      throw new Error(t('profile.telegramBinding.generateFailed'));
+
+    }
+
+    success(t('profile.telegramBinding.generated'));
+
+  } catch (err) {
+
+    showError(err?.message || t('profile.telegramBinding.generateFailed'));
+
+  } finally {
+
+    bindingGenerating.value = false;
+
+  }
+
+};
+
+const handleCopyTelegramBindingLink = async () => {
+
+  if (!bindingLink.value) return;
+
+  try {
+
+    await navigator.clipboard.writeText(bindingLink.value);
+
+    success(t('profile.telegramBinding.copied'));
+
+  } catch (err) {
+
+    showError(t('profile.telegramBinding.copyFailed'));
+
+  }
+
+};
+
+const handleRevokeTelegramBinding = async () => {
+
+  if (bindingGenerating.value) return;
+
+  bindingGenerating.value = true;
+
+  try {
+
+    const response = await revokeTelegramBinding();
+
+    // 后端在没有可撤销绑定时返回 data:false（HTTP 仍是 200），这里必须看一眼
+
+    if (response?.data === false) {
+
+      throw new Error(t('profile.telegramBinding.revokeFailed'));
+
+    }
+
+    if (telegramBindingInfo.value) {
+
+      telegramBindingInfo.value = { ...telegramBindingInfo.value, binding: null };
+
+    }
+
+    bindingLink.value = '';
+
+    success(t('profile.telegramBinding.revoked'));
+
+  } catch (err) {
+
+    showError(err?.message || t('profile.telegramBinding.revokeFailed'));
+
+  } finally {
+
+    bindingGenerating.value = false;
+
+  }
+
+};
 
 const fetchTelegramInfo = async () => {
 
@@ -1747,7 +1955,9 @@ onMounted(() => {
 
     PROFILE_CONFIG.showRecentDevices ? fetchActiveSessions() : Promise.resolve(),
 
-    fetchTelegramInfo()
+    fetchTelegramInfo(),
+
+    fetchTelegramBinding()
 
   ]).finally(() => {
 
@@ -4052,6 +4262,54 @@ body.dark-theme {
 
 @keyframes pw-reset-spin {
   to { transform: rotate(1turn); }
+}
+
+
+.telegram-binding-card {
+  .binding-status {
+    margin: 0 0 12px;
+    color: var(--secondary-text-color);
+  }
+
+  .binding-active {
+    color: var(--success-color);
+  }
+
+  .binding-invalid {
+    color: var(--error-color);
+  }
+
+  .binding-select {
+    width: 100%;
+    min-height: 42px;
+    margin-bottom: 12px;
+    padding: 0 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--card-background);
+    color: var(--text-color);
+    color-scheme: light;
+
+    option {
+      background-color: rgb(var(--card-background-rgb));
+      color: var(--text-color);
+    }
+  }
+
+  .subscription-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .subscription-url {
+      flex: 1 1 240px;
+    }
+  }
+}
+
+body.dark-theme .telegram-binding-card .binding-select {
+  color-scheme: dark;
 }
 
 </style>

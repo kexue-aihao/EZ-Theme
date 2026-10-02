@@ -195,6 +195,68 @@ export function getTelegramBotInfo() {
 
 
 
+export function getSubscriptionList() {
+
+    return request({
+
+        url: '/user/subscription/fetch',
+
+        method: 'get'
+
+    });
+
+}
+
+
+
+export function getTelegramBinding() {
+
+    return request({
+
+        url: '/user/telegram/binding',
+
+        method: 'get'
+
+    });
+
+}
+
+
+
+export function prepareTelegramBinding(subscriptionId) {
+
+    return request({
+
+        url: '/user/telegram/binding/prepare',
+
+        method: 'post',
+
+        data: {
+
+            subscription_id: subscriptionId
+
+        }
+
+    });
+
+}
+
+
+
+export function revokeTelegramBinding() {
+
+    return request({
+
+        url: '/user/telegram/binding/revoke',
+
+        method: 'post'
+
+    });
+
+}
+
+
+
 export function getUserSubscribe() {
 
     return request({
