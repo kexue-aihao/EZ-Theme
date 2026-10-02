@@ -350,30 +350,50 @@
 
         <!-- 安全设置 -->
 
-        <div class="profile-card">
-
+        <div class="profile-card password-reset-card">
           <div class="card-header">
-
-            <h3>{{ $t('profile.security') }}</h3>
-
+            <h3>{{ $t('profile.passwordReset.title') }}</h3>
           </div>
+          <div class="card-body">
+            <p class="card-desc">{{ $t('profile.passwordReset.desc') }}</p>
 
-          <div class="settings-content">
+            <template v-if="newRandomPassword">
+              <p class="reveal-label">{{ $t('profile.passwordReset.newPasswordLabel') }}</p>
+              <div class="secret-box">{{ newRandomPassword }}</div>
+              <div class="action-row">
+                <button class="action-btn" @click="copyRandomPassword">
+                  <IconCopy :size="18" />
+                  {{ $t('profile.passwordReset.copy') }}
+                </button>
+                <button class="action-btn primary" @click="goLoginAfterReset">
+                  {{ $t('profile.passwordReset.goLogin') }}
+                </button>
+              </div>
+            </template>
 
-            <div class="action-buttons">
-
-              <button class="action-btn" @click="showPasswordModal = true">
-
-                <IconLock :size="18" />
-
-                {{ $t('profile.changePassword') }}
-
-              </button>
-
-            </div>
-
+            <template v-else>
+              <div class="field-group">
+                <label>{{ $t('profile.passwordReset.currentPassword') }}</label>
+                <input
+                  type="password"
+                  v-model="resetCurrentPassword"
+                  :placeholder="$t('profile.passwordReset.currentPassword')"
+                  autocomplete="current-password"
+                  @keyup.enter="handleResetPassword"
+                />
+              </div>
+              <div class="action-row">
+                <button
+                  class="action-btn primary"
+                  :disabled="resettingPassword || !resetCurrentPassword"
+                  @click="handleResetPassword"
+                >
+                  <span v-if="resettingPassword" class="btn-loader"></span>
+                  {{ $t('profile.passwordReset.submit') }}
+                </button>
+              </div>
+            </template>
           </div>
-
         </div>
 
 
@@ -599,118 +619,6 @@
 
 
 
-      <!-- 修改密码弹窗 -->
-
-      <transition name="modal-fade">
-
-        <div v-if="showPasswordModal" class="modal-overlay" @click="showPasswordModal = false">
-
-          <div class="modal-content" @click.stop>
-
-            <div class="modal-header">
-
-              <h3>{{ $t('profile.changePasswordTitle') }}</h3>
-
-              <button class="modal-close" @click="showPasswordModal = false">
-
-                <IconX :size="20" />
-
-              </button>
-
-            </div>
-
-            <div class="modal-body">
-
-              <div class="form-group">
-
-                <label>{{ $t('profile.oldPassword') }}</label>
-
-                <input
-
-                  type="password"
-
-                  v-model="passwordForm.oldPassword"
-
-                  :placeholder="$t('profile.oldPassword')"
-
-                />
-
-              </div>
-
-              <div class="form-group">
-
-                <label>{{ $t('profile.newPassword') }}</label>
-
-                <input
-
-                  type="password"
-
-                  v-model="passwordForm.newPassword"
-
-                  :placeholder="$t('profile.newPassword')"
-
-                />
-
-              </div>
-
-              <div class="form-group">
-
-                <label>{{ $t('profile.confirmPassword') }}</label>
-
-                <input
-
-                  type="password"
-
-                  v-model="passwordForm.confirmPassword"
-
-                  :placeholder="$t('profile.confirmPassword')"
-
-                />
-
-                <div v-if="passwordMismatch" class="error-text">
-
-                  {{ $t('profile.passwordMismatch') }}
-
-                </div>
-
-              </div>
-
-            </div>
-
-            <div class="modal-footer">
-
-              <button class="btn-cancel" @click="showPasswordModal = false">
-
-                {{ $t('common.cancel') }}
-
-              </button>
-
-              <button
-
-                class="btn-submit"
-
-                @click="changePassword"
-
-                :disabled="changingPassword || !validatePasswordForm()"
-
-              >
-
-                <span v-if="changingPassword" class="loader"></span>
-
-                {{ $t('common.submit') }}
-
-              </button>
-
-            </div>
-
-          </div>
-
-        </div>
-
-      </transition>
-
-
-
       <!-- 重置订阅弹窗 -->
 
       <transition name="modal-fade">
@@ -887,7 +795,7 @@ import {
 
   getUserInfo,
 
-  changePassword as apiChangePassword,
+  resetPassword as apiResetPassword,
 
   resetSecurity as apiResetSecurity,
 
@@ -913,7 +821,6 @@ import {
 
   IconAlertTriangle,
 
-  IconLock,
 
   IconRefresh,
 
@@ -940,6 +847,7 @@ import {
 import useToast from '@/hooks/useToast';
 
 import { reloadMessages } from '@/i18n';
+import { logout } from '@/api/auth';
 
 import { DASHBOARD_CONFIG, PROFILE_CONFIG } from '@/utils/baseConfig';
 
@@ -969,11 +877,14 @@ const error = ref('');
 
 const userInfo = ref({});
 
-const showPasswordModal = ref(false);
+const newRandomPassword = ref('');
+
+const resetCurrentPassword = ref('');
+
+const resettingPassword = ref(false);
 
 const showResetModal = ref(false);
 
-const changingPassword = ref(false);
 
 const resetting = ref(false);
 
@@ -1032,46 +943,6 @@ const updatingTraffic = ref(false);
 const updatingAutoRenewal = ref(false);
 
 const showImportSubscription = ref(DASHBOARD_CONFIG.showImportSubscription)
-
-const passwordForm = ref({
-
-  oldPassword: '',
-
-  newPassword: '',
-
-  confirmPassword: ''
-
-});
-
-
-
-const passwordMismatch = computed(() => {
-
-  if (!passwordForm.value.confirmPassword) return false;
-
-  return passwordForm.value.newPassword !== passwordForm.value.confirmPassword;
-
-});
-
-
-
-const validatePasswordForm = () => {
-
-  return (
-
-    passwordForm.value.oldPassword &&
-
-    passwordForm.value.newPassword &&
-
-    passwordForm.value.confirmPassword &&
-
-    !passwordMismatch.value
-
-  );
-
-};
-
-
 
 const route = useRoute();
 
@@ -1149,50 +1020,28 @@ const fetchUserInfo = async (showLoading = true) => {
 
 
 
-const checkOpenPasswordModal = () => {
-
-  if (route.query.openPasswordModal === 'true') {
-
-    setTimeout(() => {
-
-      showPasswordModal.value = true;
-
-
-
-      const query = { ...route.query };
-
-      delete query.openPasswordModal;
-
-      router.replace({ query });
-
-    }, 500);
-
-  }
-
+const scrollToPasswordResetCard = () => {
+  setTimeout(() => {
+    document.querySelector('.password-reset-card')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 500);
 };
 
-
+const checkOpenPasswordModal = () => {
+  if (route.query.openPasswordModal === 'true') {
+    scrollToPasswordResetCard();
+    const query = { ...route.query };
+    delete query.openPasswordModal;
+    router.replace({ query });
+  }
+};
 
 watch(() => route.query, (newQuery) => {
-
   if (newQuery.openPasswordModal === 'true') {
-
-    setTimeout(() => {
-
-      showPasswordModal.value = true;
-
-
-
-      const query = { ...newQuery };
-
-      delete query.openPasswordModal;
-
-      router.replace({ query });
-
-    }, 500);
-
+    scrollToPasswordResetCard();
+    const query = { ...newQuery };
+    delete query.openPasswordModal;
+    router.replace({ query });
   }
-
 }, { immediate: true });
 
 
@@ -1431,68 +1280,37 @@ const updateRemindSettings = async (type) => {
 
 
 
-const changePassword = async () => {
-
-  if (!validatePasswordForm()) return;
-
-
-
-  changingPassword.value = true;
-
-
-
+const handleResetPassword = async () => {
+  if (!resetCurrentPassword.value || resettingPassword.value) return;
+  resettingPassword.value = true;
   try {
-
-    const data = {
-
-      old_password: passwordForm.value.oldPassword,
-
-      new_password: passwordForm.value.newPassword
-
-    };
-
-
-
-    const response = await apiChangePassword(data);
-
-
-
-    if (response && response.data) {
-
-      success(t('profile.passwordChanged'));
-
-
-
-      passwordForm.value = {
-
-        oldPassword: '',
-
-        newPassword: '',
-
-        confirmPassword: ''
-
-      };
-
-
-
-      showPasswordModal.value = false;
-
+    const response = await apiResetPassword({ current_password: resetCurrentPassword.value });
+    const data = response?.data ?? response;
+    if (!data?.password) {
+      throw new Error(t('profile.passwordReset.failed'));
     }
-
+    newRandomPassword.value = data.password;
+    resetCurrentPassword.value = '';
+    // 后端在重置成功时已经废掉所有会话，本地登录态跟着清掉；不跳转，先让用户把新密码存下来
+    await logout();
   } catch (err) {
-
-    console.error('Failed to change password:', err);
-
-
-
-    showError(t('profile.passwordError'));
-
+    showError(err?.message || t('profile.passwordReset.failed'));
   } finally {
-
-    changingPassword.value = false;
-
+    resettingPassword.value = false;
   }
+};
 
+const copyRandomPassword = async () => {
+  try {
+    await navigator.clipboard.writeText(newRandomPassword.value);
+    success(t('profile.passwordReset.copied'));
+  } catch (err) {
+    showError(t('profile.passwordReset.copyFailed'));
+  }
+};
+
+const goLoginAfterReset = () => {
+  router.push('/login');
 };
 
 
@@ -4104,6 +3922,136 @@ body.dark-theme {
 
   }
 
+}
+
+
+.password-reset-card {
+  .card-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    background-color: rgba(var(--theme-color-rgb), 0.03);
+
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+  }
+
+  .card-body {
+    padding: 20px;
+  }
+
+  .card-desc {
+    margin: 0 0 16px;
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--secondary-text-color);
+  }
+
+  .field-group {
+    margin-bottom: 16px;
+    max-width: 360px;
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-color);
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background-color: var(--card-background);
+      color: var(--text-color);
+      font-size: 15px;
+      transition: all 0.3s ease;
+
+      &:focus {
+        outline: none;
+        border-color: var(--theme-color);
+        box-shadow: 0 0 0 3px rgba(var(--theme-color-rgb), 0.1);
+      }
+    }
+  }
+
+  .reveal-label {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-color);
+  }
+
+  .secret-box {
+    padding: 12px 14px;
+    border: 1px dashed var(--border-color);
+    border-radius: 8px;
+    background-color: rgba(var(--theme-color-rgb), 0.05);
+    font-family: SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+    font-size: 13px;
+    color: var(--text-color);
+    word-break: break-all;
+    user-select: all;
+    margin-bottom: 16px;
+  }
+
+  .action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border: 1px solid rgba(var(--theme-color-rgb), 0.2);
+    border-radius: 8px;
+    background-color: rgba(var(--theme-color-rgb), 0.1);
+    color: var(--theme-color);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+
+    &:hover:not(:disabled) {
+      background-color: rgba(var(--theme-color-rgb), 0.2);
+      transform: translateY(-2px);
+    }
+
+    &:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    &.primary {
+      background-color: var(--theme-color);
+      color: var(--btn-text-color, #fff);
+
+      &:hover:not(:disabled) {
+        background-color: var(--primary-color-hover);
+      }
+    }
+  }
+
+  .btn-loader {
+    width: 14px;
+    height: 14px;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: pw-reset-spin 0.8s linear infinite;
+  }
+}
+
+@keyframes pw-reset-spin {
+  to { transform: rotate(1turn); }
 }
 
 </style>

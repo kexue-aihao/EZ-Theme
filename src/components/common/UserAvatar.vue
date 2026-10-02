@@ -27,7 +27,7 @@
         </div>
         <div class="menu-item" @click="navigateTo('/profile?openPasswordModal=true')">
           <IconLock class="menu-icon" />
-          <span>{{ $t('common.changePassword') }}</span>
+          <span>{{ $t('common.resetPassword') }}</span>
         </div>
         <div class="divider"></div>
         <div class="menu-item" @click="logout">
