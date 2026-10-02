@@ -110,3 +110,18 @@ for (const f of FEATURES) {
 }
 console.log('-'.repeat(64));
 console.log('已落地 ' + done + ' 项，未落地 ' + todo + ' 项，共 ' + FEATURES.length + ' 项');
+
+// ---- 另一把尺子：产物里的组件名，源码里有没有 ----
+// 有些功能没进上面的清单（比如算术验证码字段挂在注册页里），组件名能把它们捞出来。
+const VENDOR = ['BaseTransition', 'MotionGroup', 'KeepAlive', 'RouterLink', 'RouterView', 'Teleport', 'TransitionGroup'];   // Vue 内置 / 三方内部，不算缺功能
+const names = new Map();
+for (const file of fs.readdirSync(ARTIFACT_DIR)) {
+  if (!file.endsWith('.js') || /^(8488|5442|3744|7018|1900|7121|6015|7300|8153|chunk-vendors)\./.test(file)) continue;
+  const text = fs.readFileSync(path.join(ARTIFACT_DIR, file), 'utf8');
+  // 两种写法都要收：`__name:"X"`（script setup 编译产物）与 `name:"X"`（Options API，首字母大写才是组件名）
+  for (const m of text.matchAll(/__name:"([A-Za-z][\w]*)"/g)) if (!names.has(m[1])) names.set(m[1], file);
+  for (const m of text.matchAll(/[,{]name:"([A-Z][A-Za-z]+)"/g)) if (!names.has(m[1])) names.set(m[1], file);
+}
+const missing = [...names.keys()].filter(n => !VENDOR.includes(n) && !src.includes(n)).sort();
+console.log('\n产物里的组件名 ' + names.size + ' 个，源码里没有的 ' + missing.length + ' 个：');
+missing.forEach(n => console.log('  · ' + n.padEnd(24) + '（' + names.get(n) + '）'));
