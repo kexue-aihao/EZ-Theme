@@ -973,5 +973,22 @@ export default {
       title: 'アカウントチャージ',
       description: 'ここでは簡単にアカウントにチャージできます。プリセット金額を選択するか、カスタム金額を入力してチャージしてください。チャージ後の残高は即時反映され、サービスの購入に使用できます。'
     }
-  }
+  },
+  statusGate: {
+    checking: 'Checking service status',
+    days: 'd',
+    errorTitle: 'Unable to read site status',
+    hours: 'h',
+    kickerMaintenance: 'MAINTENANCE WINDOW',
+    kickerShutdown: 'SERVICE OFFLINE',
+    message: 'The system is undergoing maintenance, please try again later.',
+    minutes: 'm',
+    recoveryLabel: 'Estimated recovery',
+    recoveryReached: 'Recovery time reached — check again',
+    retry: 'Check again',
+    seconds: 's',
+    support: 'Contact support',
+    titleMaintenance: 'Service under maintenance',
+    titleShutdown: 'Service temporarily suspended',
+  },
 };

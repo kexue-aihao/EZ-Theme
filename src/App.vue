@@ -1,4 +1,6 @@
 ﻿<template>
+  <!-- 站点状态闸门：维护 / 停服时整页拦截，不渲染下面的应用 -->
+  <SiteStatusGate>
   <div>
     <!-- 静态布局容器，包含不需要过渡效果的菜单和按钮 -->
     <div class="static-layout" v-if="$route.meta.requiresAuth">
@@ -72,6 +74,7 @@
     <!-- SVG图标定义 -->
     <IconDefinitions />
   </div>
+  </SiteStatusGate>
 </template>
 
 <script>
@@ -94,6 +97,7 @@ import CustomContextMenu from '@/components/common/CustomContextMenu.vue';
 import CustomerServiceIcon from '@/components/common/CustomerServiceIcon.vue';
 import CrispEmbed from '@/components/common/CrispEmbed.vue';
 import ResourcePreloader from '@/components/common/ResourcePreloader.vue';
+import SiteStatusGate from '@/components/common/SiteStatusGate.vue';
 import { IconGift } from '@tabler/icons-vue';
 import NProgress from 'nprogress';
 import 'nprogress/nprogress.css';
@@ -120,6 +124,7 @@ export default {
     CustomerServiceIcon,
     CrispEmbed,
     ResourcePreloader,
+    SiteStatusGate,
     IconGift
   },
   setup() {

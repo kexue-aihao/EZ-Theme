@@ -973,5 +973,22 @@ export default {
       title: 'شارژ حساب',
       description: 'اینجا می توانید موجودی حساب را شارژ کنید، مبلغ را انتخاب کنید یا وارد کنید. موجودی شارژ شده بلافاصله اضافه می شود و برای خرید خدمات استفاده می شود'
     }
-  }
+  },
+  statusGate: {
+    checking: 'Checking service status',
+    days: 'd',
+    errorTitle: 'Unable to read site status',
+    hours: 'h',
+    kickerMaintenance: 'MAINTENANCE WINDOW',
+    kickerShutdown: 'SERVICE OFFLINE',
+    message: 'The system is undergoing maintenance, please try again later.',
+    minutes: 'm',
+    recoveryLabel: 'Estimated recovery',
+    recoveryReached: 'Recovery time reached — check again',
+    retry: 'Check again',
+    seconds: 's',
+    support: 'Contact support',
+    titleMaintenance: 'Service under maintenance',
+    titleShutdown: 'Service temporarily suspended',
+  },
 };

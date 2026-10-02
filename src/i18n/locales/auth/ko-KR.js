@@ -268,5 +268,22 @@ export default {
     apiChecking: 'API 가용성 확인 중...',
     checking: '확인 중',
     completed: '완료'
-  }
+  },
+  statusGate: {
+    checking: 'Checking service status',
+    days: 'd',
+    errorTitle: 'Unable to read site status',
+    hours: 'h',
+    kickerMaintenance: 'MAINTENANCE WINDOW',
+    kickerShutdown: 'SERVICE OFFLINE',
+    message: 'The system is undergoing maintenance, please try again later.',
+    minutes: 'm',
+    recoveryLabel: 'Estimated recovery',
+    recoveryReached: 'Recovery time reached — check again',
+    retry: 'Check again',
+    seconds: 's',
+    support: 'Contact support',
+    titleMaintenance: 'Service under maintenance',
+    titleShutdown: 'Service temporarily suspended',
+  },
 };

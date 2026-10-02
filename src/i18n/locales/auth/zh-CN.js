@@ -268,5 +268,22 @@ export default {
     apiChecking: '正在检测API可用性...',
     checking: '正在检测',
     completed: '已完成'
-  }
+  },
+  statusGate: {
+    checking: '正在检查服务状态',
+    days: '天',
+    errorTitle: '暂时无法读取站点状态',
+    hours: '时',
+    kickerMaintenance: 'MAINTENANCE WINDOW',
+    kickerShutdown: 'SERVICE OFFLINE',
+    message: '系统正在进行维护，请稍后再试。',
+    minutes: '分',
+    recoveryLabel: '预计恢复',
+    recoveryReached: '恢复时间已到，请再次检查',
+    retry: '再次检查',
+    seconds: '秒',
+    support: '联系支持',
+    titleMaintenance: '服务正在维护',
+    titleShutdown: '服务暂时停止',
+  },
 }; 

@@ -972,5 +972,22 @@ export default {
             title: '账户充值',
             description: '在这里您可以轻松地为您的账户充值，选择预设金额或输入自定义金额进行充值。充值后的余额将立即到账并可用于购买我们的服务。'
         }
-    }
+    },
+    statusGate: {
+        checking: '正在检查服务状态',
+        days: '天',
+        errorTitle: '暂时无法读取站点状态',
+        hours: '时',
+        kickerMaintenance: 'MAINTENANCE WINDOW',
+        kickerShutdown: 'SERVICE OFFLINE',
+        message: '系统正在进行维护，请稍后再试。',
+        minutes: '分',
+        recoveryLabel: '预计恢复',
+        recoveryReached: '恢复时间已到，请再次检查',
+        retry: '再次检查',
+        seconds: '秒',
+        support: '联系支持',
+        titleMaintenance: '服务正在维护',
+        titleShutdown: '服务暂时停止',
+    },
 }; 

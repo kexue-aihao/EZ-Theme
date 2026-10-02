@@ -974,5 +974,22 @@ export default {
       title: '계정 충전',
       description: '여기서 계정에 쉽게 충전할 수 있습니다. 사전 설정된 금액을 선택하거나 사용자 지정 금액을 입력하여 충전하세요. 충전된 잔액은 즉시 반영되며 서비스 구매에 사용할 수 있습니다.'
     }
-  }
+  },
+  statusGate: {
+    checking: 'Checking service status',
+    days: 'd',
+    errorTitle: 'Unable to read site status',
+    hours: 'h',
+    kickerMaintenance: 'MAINTENANCE WINDOW',
+    kickerShutdown: 'SERVICE OFFLINE',
+    message: 'The system is undergoing maintenance, please try again later.',
+    minutes: 'm',
+    recoveryLabel: 'Estimated recovery',
+    recoveryReached: 'Recovery time reached — check again',
+    retry: 'Check again',
+    seconds: 's',
+    support: 'Contact support',
+    titleMaintenance: 'Service under maintenance',
+    titleShutdown: 'Service temporarily suspended',
+  },
 };

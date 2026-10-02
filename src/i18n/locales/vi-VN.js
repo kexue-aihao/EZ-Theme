@@ -1060,5 +1060,22 @@ export default {
         unknownBrowser: 'Trình duyệt không xác định',
         unknownDevice: 'Thiết bị không xác định',
         userId: 'ID người dùng',
-    }
+    },
+    statusGate: {
+        checking: 'Checking service status',
+        days: 'd',
+        errorTitle: 'Unable to read site status',
+        hours: 'h',
+        kickerMaintenance: 'MAINTENANCE WINDOW',
+        kickerShutdown: 'SERVICE OFFLINE',
+        message: 'The system is undergoing maintenance, please try again later.',
+        minutes: 'm',
+        recoveryLabel: 'Estimated recovery',
+        recoveryReached: 'Recovery time reached — check again',
+        retry: 'Check again',
+        seconds: 's',
+        support: 'Contact support',
+        titleMaintenance: 'Service under maintenance',
+        titleShutdown: 'Service temporarily suspended',
+    },
 };

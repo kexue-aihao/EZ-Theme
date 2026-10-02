@@ -25,6 +25,8 @@ const LIST = process.argv.includes('--list');
 const ONLY_TARGET = (process.argv.find(a => a.startsWith('--target=')) || '').split('=')[1] || '';
 const SOURCE = (process.argv.find(a => a.startsWith('--source=')) || '').split('=')[1] || '';
 const FROM = (process.argv.find(a => a.startsWith('--from=')) || '').split('=')[1] || '';
+/** --from 的 key 补进哪几套（默认只补主集；包住整个 App 的组件两套都要有） */
+const FROM_TARGETS = ((process.argv.find(a => a.startsWith('--from-targets=')) || '').split('=')[1] || 'main').split(',');
 
 const ARTIFACT = JSON.parse(fs.readFileSync(path.join(ROOT, '.refs', 'i18n-artifact.json'), 'utf8'));
 const C8153 = JSON.parse(fs.readFileSync(path.join(ROOT, '.refs', 'i18n-8153.json'), 'utf8'));
@@ -47,7 +49,11 @@ const TARGETS = [
     name: 'auth',
     label: 'auth locale 集',
     dir: path.join(LOCALES, 'auth'),
-    wanted: lang => pick(C8153[lang], /^(auth|landing)\./),
+    useExtra: FROM_TARGETS.includes('auth'),
+    wanted: lang => [
+      ...(FROM_TARGETS.includes('auth') ? Object.keys(EXTRA[lang] || {}) : []),
+      ...pick(C8153[lang], /^(auth|landing)\./),
+    ],
   },
 ];
 
@@ -193,6 +199,14 @@ function insertPoint(text, close) {
   return i + 1;
 }
 
+/** export default { ... } 这个根对象（用来新建顶层命名空间） */
+function rootBlock(text) {
+  const m = /export\s+default\s*\{/.exec(text);
+  if (!m) return null;
+  const open = text.indexOf('{', m.index);
+  return { open, close: matchingClose(text, open), indent: 0 };
+}
+
 function editsAt(edits, at) {
   if (!edits.has(at)) edits.set(at, []);
   return edits.get(at);
@@ -262,7 +276,15 @@ for (const target of TARGETS) {
     const missingNs = [];
     for (const ns of Object.keys(tree)) {
       const block = findNamespace(text, ns);
-      if (!block) { missingNs.push(ns); continue; }
+      if (!block) {
+        // 顶层命名空间整个不存在：新建一个块，插在 export default 对象的末尾
+        const root = rootBlock(text);
+        if (!root) { missingNs.push(ns); continue; }
+        const at = insertPoint(text, root.close);
+        editsAt(edits, at).push('\n' + ' '.repeat(unit) + ns + ': ' + renderObject(tree[ns], unit * 2, unit) + ',');
+        for (const sub of Object.keys(flatten(tree[ns], '', {}))) added.push(ns + '.' + sub);
+        continue;
+      }
       collectEdits(text, block, tree[ns], childIndentOf(text, block, unit), unit, edits, added, [ns]);
     }
     if (missingNs.length) { failures.push(file + '：源码里找不到这些顶层命名空间 —— ' + missingNs.join(', ')); continue; }
