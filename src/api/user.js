@@ -257,6 +257,90 @@ export function revokeTelegramBinding() {
 
 
 
+export function getTwoFactorStatus() {
+
+    return request({
+
+        url: '/user/2fa/status',
+
+        method: 'get'
+
+    });
+
+}
+
+
+
+
+export function setupTwoFactor() {
+
+    return request({
+
+        url: '/user/2fa/setup',
+
+        method: 'post'
+
+    });
+
+}
+
+
+
+
+export function confirmTwoFactor(data) {
+
+    return request({
+
+        url: '/user/2fa/confirm',
+
+        method: 'post',
+
+
+        data
+
+    });
+
+}
+
+
+
+
+export function disableTwoFactor(data) {
+
+    return request({
+
+        url: '/user/2fa/disable',
+
+        method: 'post',
+
+
+        data
+
+    });
+
+}
+
+
+
+
+export function regenerateTwoFactorRecoveryCodes(data) {
+
+    return request({
+
+        url: '/user/2fa/recovery-codes/regenerate',
+
+        method: 'post',
+
+
+        data
+
+    });
+
+}
+
+
+
+
 export function getUserSubscribe() {
 
     return request({

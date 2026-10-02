@@ -505,6 +505,119 @@
           </div>
         </div>
 
+        <div class="profile-card two-factor-card">
+          <div class="card-header">
+            <h3>{{ $t('profile.twoFactor.title') }}</h3>
+          </div>
+          <div class="card-body">
+            <p class="card-desc">{{ $t('profile.twoFactor.desc') }}</p>
+
+            <!-- 恢复码：只显示这一次 -->
+            <template v-if="twoFactorRecoveryCodes.length">
+              <p class="reveal-label">{{ $t('profile.twoFactor.recoveryTitle') }}</p>
+              <p class="card-desc">{{ $t('profile.twoFactor.recoveryHint') }}</p>
+              <div class="secret-box recovery-codes">
+                <div v-for="code in twoFactorRecoveryCodes" :key="code">{{ code }}</div>
+              </div>
+              <div class="action-row">
+                <button class="action-btn" @click="copyRecoveryCodes">
+                  <IconCopy :size="18" />
+                  {{ $t('profile.twoFactor.copyAll') }}
+                </button>
+                <button class="action-btn primary" @click="goLoginAfterTwoFactor">
+                  {{ $t('profile.twoFactor.goLogin') }}
+                </button>
+              </div>
+            </template>
+
+            <!-- 绑定中 -->
+            <template v-else-if="twoFactorSetup">
+              <img
+                v-if="twoFactorSetup.qr_code"
+                :src="twoFactorSetup.qr_code"
+                class="two-factor-qr"
+                alt="2FA"
+              />
+              <p class="card-desc">{{ $t('profile.twoFactor.scanHint') }}</p>
+              <div class="secret-box">{{ twoFactorSetup.manual_key }}</div>
+              <div class="action-row">
+                <button class="action-btn" @click="copyManualKey">
+                  <IconCopy :size="18" />
+                  {{ $t('profile.twoFactor.copyAll') }}
+                </button>
+              </div>
+              <div class="field-group">
+                <label>{{ $t('profile.twoFactor.codeLabel') }}</label>
+                <input
+                  type="text"
+                  inputmode="numeric"
+                  autocomplete="one-time-code"
+                  v-model="twoFactorCode"
+                  :placeholder="$t('profile.twoFactor.codePlaceholder')"
+                  @keyup.enter="confirmTwoFactorSetup"
+                />
+              </div>
+              <div class="action-row">
+                <button
+                  class="action-btn primary"
+                  :disabled="twoFactorBusy || !twoFactorCode.trim()"
+                  @click="confirmTwoFactorSetup"
+                >
+                  {{ $t('profile.twoFactor.confirm') }}
+                </button>
+                <button class="action-btn" @click="cancelTwoFactorSetup">
+                  {{ $t('profile.twoFactor.cancel') }}
+                </button>
+              </div>
+            </template>
+
+            <!-- 已启用：停用 / 重新生成恢复码 -->
+            <template v-else-if="twoFactorEnabled">
+              <p class="binding-status binding-active">{{ $t('profile.twoFactor.statusEnabled') }}</p>
+              <p class="card-desc">{{ $t('profile.twoFactor.manageHint') }}</p>
+              <div class="field-group">
+                <label>{{ $t('profile.twoFactor.currentPassword') }}</label>
+                <input type="password" autocomplete="current-password" v-model="twoFactorManagePassword" />
+              </div>
+              <div class="field-group">
+                <label>{{ $t('profile.twoFactor.factorLabel') }}</label>
+                <input
+                  type="text"
+                  autocomplete="one-time-code"
+                  v-model="twoFactorManageFactor"
+                  :placeholder="$t('profile.twoFactor.factorPlaceholder')"
+                />
+              </div>
+              <div class="action-row">
+                <button
+                  class="action-btn danger"
+                  :disabled="twoFactorBusy"
+                  @click="submitTwoFactorManage('disable')"
+                >
+                  {{ $t('profile.twoFactor.disableAction') }}
+                </button>
+                <button
+                  class="action-btn"
+                  :disabled="twoFactorBusy"
+                  @click="submitTwoFactorManage('regenerate')"
+                >
+                  {{ $t('profile.twoFactor.regenerate') }}
+                </button>
+              </div>
+            </template>
+
+            <!-- 未启用 -->
+            <template v-else>
+              <p class="binding-status">{{ $t('profile.twoFactor.statusDisabled') }}</p>
+              <div class="action-row">
+                <button class="action-btn primary" :disabled="twoFactorBusy" @click="beginTwoFactorSetup">
+                  {{ $t('profile.twoFactor.begin') }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <!-- 订阅管理 -->
 
         <div class="profile-card" v-if="showImportSubscription">
@@ -868,7 +981,18 @@ import {
 
   prepareTelegramBinding,
 
-  revokeTelegramBinding
+  revokeTelegramBinding,
+
+  getTwoFactorStatus,
+
+  setupTwoFactor,
+
+  confirmTwoFactor,
+
+  disableTwoFactor,
+
+  regenerateTwoFactorRecoveryCodes
+
 
 
 } from '@/api/user';
@@ -1271,6 +1395,214 @@ const handleRevokeTelegramBinding = async () => {
   } finally {
 
     bindingGenerating.value = false;
+
+  }
+
+};
+
+// ---- 两步验证（个人中心管理卡）----
+
+const twoFactorStatus = ref(null);
+
+const twoFactorSetup = ref(null);
+
+const twoFactorCode = ref('');
+
+const twoFactorRecoveryCodes = ref([]);
+
+const twoFactorBusy = ref(false);
+
+const twoFactorManagePassword = ref('');
+
+const twoFactorManageFactor = ref('');
+
+const twoFactorEnabled = computed(() => Boolean(twoFactorStatus.value?.enabled));
+
+const toaster = useToast();
+
+const twoFactorFail = (err) => toaster.error(err?.message || t('profile.twoFactor.loadFailed'));
+
+const fetchTwoFactorStatus = async () => {
+
+  try {
+
+    const response = await getTwoFactorStatus();
+
+    twoFactorStatus.value = response?.data || null;
+
+  } catch (err) {
+
+    twoFactorStatus.value = null;
+
+  }
+
+};
+
+const beginTwoFactorSetup = async () => {
+
+  if (twoFactorBusy.value) return;
+
+  twoFactorBusy.value = true;
+
+  try {
+
+    const response = await setupTwoFactor();
+
+    twoFactorSetup.value = response?.data || null;
+
+    twoFactorCode.value = '';
+
+    twoFactorRecoveryCodes.value = [];
+
+  } catch (err) {
+
+    twoFactorFail(err);
+
+  } finally {
+
+    twoFactorBusy.value = false;
+
+  }
+
+};
+
+const cancelTwoFactorSetup = () => {
+
+  twoFactorSetup.value = null;
+
+  twoFactorCode.value = '';
+
+};
+
+const confirmTwoFactorSetup = async () => {
+
+  if (twoFactorBusy.value || !twoFactorCode.value.trim()) return;
+
+  twoFactorBusy.value = true;
+
+  try {
+
+    const response = await confirmTwoFactor({ code: twoFactorCode.value.trim() });
+
+    twoFactorRecoveryCodes.value = response?.data?.recovery_codes || [];
+
+    twoFactorSetup.value = null;
+
+    twoFactorCode.value = '';
+
+    await fetchTwoFactorStatus();
+
+    // 后端在启用时把会话全废了，本地登录态跟着清掉（不跳转，先让用户存恢复码）
+
+    await logout();
+
+  } catch (err) {
+
+    twoFactorFail(err);
+
+  } finally {
+
+    twoFactorBusy.value = false;
+
+  }
+
+};
+
+const copyText = async (value, okKey, failKey) => {
+
+  try {
+
+    await navigator.clipboard.writeText(value);
+
+    toaster.success(t(okKey));
+
+  } catch (err) {
+
+    toaster.error(t(failKey));
+
+  }
+
+};
+
+const copyRecoveryCodes = () =>
+
+  copyText(twoFactorRecoveryCodes.value.join('\n'), 'profile.twoFactor.copied', 'profile.twoFactor.copyFailed');
+
+const copyManualKey = () =>
+
+  copyText(twoFactorSetup.value?.manual_key || '', 'profile.twoFactor.copied', 'profile.twoFactor.copyFailed');
+
+const goLoginAfterTwoFactor = () => router.push('/login');
+
+const submitTwoFactorManage = async (mode) => {
+
+  if (twoFactorBusy.value) return;
+
+  const factor = twoFactorManageFactor.value.trim();
+
+  const password = twoFactorManagePassword.value;
+
+  if (!password || !factor) {
+
+    toaster.error(t('profile.twoFactor.loadFailed'));
+
+    return;
+
+  }
+
+  // 六位数字当动态码，其余当恢复码（后端两个参数都收，哪个有效用哪个）
+
+  const isCode = /^\d{6}$/.test(factor);
+
+  const payload = {
+
+    current_password: password,
+
+    code: isCode ? factor : undefined,
+
+    recovery_code: isCode ? undefined : factor
+
+  };
+
+  twoFactorBusy.value = true;
+
+  try {
+
+    if (mode === 'disable') {
+
+      await disableTwoFactor(payload);
+
+      twoFactorRecoveryCodes.value = [];
+
+      await fetchTwoFactorStatus();
+
+      toaster.success(t('profile.twoFactor.disabledDone'));
+
+      await logout();
+
+    } else {
+
+      const response = await regenerateTwoFactorRecoveryCodes(payload);
+
+      twoFactorRecoveryCodes.value = response?.data?.recovery_codes || [];
+
+      await fetchTwoFactorStatus();
+
+      await logout();
+
+    }
+
+    twoFactorManagePassword.value = '';
+
+    twoFactorManageFactor.value = '';
+
+  } catch (err) {
+
+    twoFactorFail(err);
+
+  } finally {
+
+    twoFactorBusy.value = false;
 
   }
 
@@ -1957,7 +2289,9 @@ onMounted(() => {
 
     fetchTelegramInfo(),
 
-    fetchTelegramBinding()
+    fetchTelegramBinding(),
+
+    fetchTwoFactorStatus()
 
   ]).finally(() => {
 
@@ -4310,6 +4644,30 @@ body.dark-theme {
 
 body.dark-theme .telegram-binding-card .binding-select {
   color-scheme: dark;
+}
+
+
+.two-factor-card {
+  .card-body {
+    padding: 20px;
+  }
+
+  .two-factor-qr {
+    display: block;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 16px;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background: #fff;
+  }
+
+  .recovery-codes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 6px;
+  }
 }
 
 </style>
