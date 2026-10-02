@@ -577,6 +577,7 @@ import { useRouter, useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 
 import { useToast } from '@/composables/useToast';
+import { consumePendingPurchase } from '@/utils/pendingPurchase';
 import OAuthButtons from '@/components/common/OAuthButtons.vue';
 import { completeOAuth } from '@/api/auth';
 import ArithmeticField from '@/components/common/ArithmeticField.vue';
@@ -1551,7 +1552,7 @@ const handleOAuthCompleted = (data) => {
 
     showToast(t('auth.loginSuccess'), 'success', 3000);
 
-    setTimeout(() => router.push('/dashboard'), 300);
+    setTimeout(() => { redirectAfterAuth(); }, 300);
 
     return;
 
@@ -1628,6 +1629,24 @@ const handleOAuthCallback = async () => {
     showToast(err?.response?.message || err?.message || t('auth.oauth.completeFailed'), 'error');
 
   }
+
+};
+
+// 登录成功后：有待购买的单就去收银台，否则进面板
+
+const redirectAfterAuth = async (target) => {
+
+  const tradeNo = await consumePendingPurchase();
+
+  if (tradeNo) {
+
+    router.push({ path: '/payment', query: { trade_no: tradeNo } });
+
+    return;
+
+  }
+
+  router.push(target || '/dashboard');
 
 };
 
