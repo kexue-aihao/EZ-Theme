@@ -389,17 +389,30 @@ export default {
 
         : t('landing.plans.unlimited');
 
+    /**
+     * 套餐 content 是后台富文本（带换行与注释的 HTML），直接按行取前几行会把标签本身
+     * 当文案显示出来（线上踩过：卡片里出现 <div style="padding:20px…">）。
+     * 这里先把块级标签与 <br> 换成换行，再用 textContent 取纯文本（不用 v-html，避免注入）。
+     */
+    const toPlainLines = (html) => {
+
+      const withBreaks = String(html || '')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<\/(p|div|li|h[1-6]|tr|section|article)>/gi, '\n');
+
+      const holder = document.createElement('div');
+      holder.innerHTML = withBreaks;
+
+      return String(holder.textContent || '')
+        .split('\n')
+        .map((line) => line.replace(/\s+/g, ' ').trim())
+        .filter(Boolean);
+
+    };
+
     const features = (plan) => {
 
-      const lines = String(plan.content || '')
-
-        .split('\n')
-
-        .map((line) => line.trim())
-
-        .filter(Boolean)
-
-        .slice(0, 4);
+      const lines = toPlainLines(plan.content).slice(0, 4);
 
       return lines.length ? lines : [t('landing.plans.defaultFeature')];
 
