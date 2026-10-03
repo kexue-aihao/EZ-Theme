@@ -78,5 +78,12 @@
 <!-- built files will be auto injected -->
 <!-- 隐蔽版本号 若不想显示版本号 请注释下方 div 标签-->
 <div class="app-version">v0.3.8</div>
+<!-- 面板级脚本（不属于主题产物，由 v2board 的 public/assets 提供）：
+     后台开启「Telegram 机器人注册」/「强制绑定 Telegram」时，注册与绑定弹窗由这两个文件承载。
+     线上内置主题是 dashboard.blade.php 挂的同样两行；前后分离部署时主题产物里没有它们，
+     注册页就会继续提交已经被移除的 /passport/auth/register（线上表现为 404）。
+     路径是站点根，与主题产物同级，刷新产物不用动它们。 -->
+<script defer src="/assets/telegram-bind-widget.js"></script>
+<script defer src="/assets/telegram-register-widget.js"></script>
 </body>
 </html>
