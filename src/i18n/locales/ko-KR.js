@@ -134,7 +134,11 @@ export default {
     captchaError: '인증 오류, 다시 시도하세요',
     captchaLoading: '인증 컴포넌트 로딩 중...',
     verifyTokenSuccess: '토큰 인증 성공',
-    verifyTokenFailed: '토큰 인증 실패, 다시 시도하세요'
+    verifyTokenFailed: '토큰 인증 실패, 다시 시도하세요',
+    forgetUnavailable: 'Password recovery is unavailable',
+    forgetUnavailableHint: 'Please contact support to reset your password.',
+    registerClosed: 'Registration is currently closed',
+    registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
   },
   validation: {
     required: '{field}은(는) 필수 입력 항목입니다',

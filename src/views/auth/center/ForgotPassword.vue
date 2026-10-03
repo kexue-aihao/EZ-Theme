@@ -62,7 +62,12 @@
 
 
 
-      <form class="auth-form" @submit.prevent="handleSubmit">
+      <div v-if="closedNotice" class="auth-closed-notice">
+        <h2 class="closed-title">{{ $t('auth.forgetUnavailable') }}</h2>
+        <p class="closed-hint">{{ $t('auth.forgetUnavailableHint') }}</p>
+      </div>
+
+      <form v-if="!closedNotice" class="auth-form" @submit.prevent="handleSubmit">
 
         <div class="form-group">
 
@@ -352,7 +357,7 @@
 
 <script>
 
-import { reactive, ref, onMounted, onBeforeUnmount, getCurrentInstance, onActivated } from 'vue';
+import { computed, reactive, ref, onMounted, onBeforeUnmount, getCurrentInstance, onActivated } from 'vue';
 
 import { useRouter } from 'vue-router';
 
@@ -459,6 +464,10 @@ export default {
     const { t } = useI18n();
 
     const { showToast } = useToast();
+
+// 邮箱找回已被 Telegram 验证码找回取代：那个也不可用时，只剩联系客服
+
+const closedNotice = computed(() => config.telegram_forget_enabled === false);
 
     const { goTo } = useNavigator()
 
@@ -2531,6 +2540,28 @@ export default {
 
   }
 
+}
+
+
+.auth-closed-notice {
+  padding: 24px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-background);
+  text-align: center;
+
+  .closed-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: var(--text-color);
+  }
+
+  .closed-hint {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--secondary-text-color);
+  }
 }
 
 </style>

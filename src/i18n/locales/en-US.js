@@ -133,7 +133,11 @@ export default {
         captchaError: 'Verification error, please try again',
         captchaLoading: 'Loading verification component...',
         verifyTokenSuccess: 'Token verification successful',
-        verifyTokenFailed: 'Token verification failed, please try again'
+        verifyTokenFailed: 'Token verification failed, please try again',
+        forgetUnavailable: 'Password recovery is unavailable',
+        forgetUnavailableHint: 'Please contact support to reset your password.',
+        registerClosed: 'Registration is currently closed',
+        registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
     },
     validation: {
         required: '{field} cannot be empty',

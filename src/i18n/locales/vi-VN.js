@@ -132,7 +132,11 @@ export default {
         captchaError: 'Lỗi xác thực, vui lòng thử lại',
         captchaLoading: 'Đang tải thành phần xác thực...',
         verifyTokenSuccess: 'Xác thực token thành công',
-        verifyTokenFailed: 'Xác thực token thất bại, vui lòng thử lại'
+        verifyTokenFailed: 'Xác thực token thất bại, vui lòng thử lại',
+        forgetUnavailable: 'Password recovery is unavailable',
+        forgetUnavailableHint: 'Please contact support to reset your password.',
+        registerClosed: 'Registration is currently closed',
+        registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
     },
     validation: {
         required: '{field} không được để trống',

@@ -125,6 +125,10 @@ export default {
       useRecovery: '복구 코드 사용',
       verify: '인증',
     },
+    forgetUnavailable: 'Password recovery is unavailable',
+    forgetUnavailableHint: 'Please contact support to reset your password.',
+    registerClosed: 'Registration is currently closed',
+    registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
   },
   validation: {
     required: '{field}은(는) 비워둘 수 없습니다',

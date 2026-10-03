@@ -81,7 +81,12 @@
       </div>
 
       
-<form class="auth-form" @submit.prevent="handleRegister">
+<div v-if="closedNotice" class="auth-closed-notice">
+        <h2 class="closed-title">{{ $t('auth.registerClosed') }}</h2>
+        <p class="closed-hint">{{ $t('auth.registerClosedHint') }}</p>
+      </div>
+
+      <form v-if="!closedNotice" class="auth-form" @submit.prevent="handleRegister">
 
         <div class="form-group">
 
@@ -691,6 +696,14 @@ export default {
   const route = useRoute();
 
     const { showToast } = useToast();
+
+// 注册入口已收敛到 Telegram 机器人：后台停止注册、或机器人注册不可用时，本站就没有注册路径了
+
+const closedNotice = computed(
+
+  () => config.telegram_register_closed === true || config.telegram_register_enabled === false
+
+);
 
 // 算术验证码控制器（后端开关打开时才有题，见 fetchWebsiteConfig）
 
@@ -4074,6 +4087,28 @@ const redirectAfterAuth = async (target) => {
 
 .oauth-entry {
   margin-bottom: 20px;
+}
+
+
+.auth-closed-notice {
+  padding: 24px 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--card-background);
+  text-align: center;
+
+  .closed-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    color: var(--text-color);
+  }
+
+  .closed-hint {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--secondary-text-color);
+  }
 }
 
 </style>

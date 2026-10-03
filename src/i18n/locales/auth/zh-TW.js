@@ -125,6 +125,10 @@ export default {
       useRecovery: '使用復原碼',
       verify: '驗證',
     },
+    forgetUnavailable: '密碼找回暫不可用',
+    forgetUnavailableHint: '請聯繫客服協助重設密碼。',
+    registerClosed: '註冊暫未開放',
+    registerClosedHint: '本站註冊入口已收斂到 Telegram 機器人，目前未開放。',
   },
   validation: {
     required: '{field}不能為空',

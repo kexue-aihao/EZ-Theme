@@ -125,6 +125,10 @@ export default {
       useRecovery: 'استفاده از کد بازیابی',
       verify: 'تایید',
     },
+    forgetUnavailable: 'Password recovery is unavailable',
+    forgetUnavailableHint: 'Please contact support to reset your password.',
+    registerClosed: 'Registration is currently closed',
+    registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
   },
   validation: {
     required: '{field} نمی تواند خالی باشد',

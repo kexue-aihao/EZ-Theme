@@ -133,7 +133,11 @@ export default {
         captchaError: '验证出错，请重试',
         captchaLoading: '正在加载验证组件...',
         verifyTokenSuccess: '令牌验证成功',
-        verifyTokenFailed: '令牌验证失败，请重试'
+        verifyTokenFailed: '令牌验证失败，请重试',
+        forgetUnavailable: '密码找回暂不可用',
+        forgetUnavailableHint: '请联系客服协助重置密码。',
+        registerClosed: '注册暂未开放',
+        registerClosedHint: '本站注册入口已收敛到 Telegram 机器人，当前未开放。',
     },
     validation: {
         required: '{field}不能为空',

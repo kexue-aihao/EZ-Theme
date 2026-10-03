@@ -134,7 +134,11 @@ export default {
     captchaError: '認証エラー。もう一度お試しください',
     captchaLoading: '認証コンポーネント読み込み中...',
     verifyTokenSuccess: 'トークン認証成功',
-    verifyTokenFailed: 'トークン認証失敗、もう一度お試しください'
+    verifyTokenFailed: 'トークン認証失敗、もう一度お試しください',
+    forgetUnavailable: 'Password recovery is unavailable',
+    forgetUnavailableHint: 'Please contact support to reset your password.',
+    registerClosed: 'Registration is currently closed',
+    registerClosedHint: 'Registration on this site goes through the Telegram bot, which is closed right now.',
   },
   validation: {
     required: '{field}は必須です',

@@ -134,7 +134,11 @@ export default {
     captchaError: '驗證錯誤，請重試',
     captchaLoading: '正在載入驗證元件...',
     verifyTokenSuccess: '令牌驗證成功',
-    verifyTokenFailed: '令牌驗證失敗，請重試'
+    verifyTokenFailed: '令牌驗證失敗，請重試',
+    forgetUnavailable: '密碼找回暫不可用',
+    forgetUnavailableHint: '請聯繫客服協助重設密碼。',
+    registerClosed: '註冊暫未開放',
+    registerClosedHint: '本站註冊入口已收斂到 Telegram 機器人，目前未開放。',
   },
   validation: {
     required: '{field}不能為空',
