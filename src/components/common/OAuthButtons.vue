@@ -37,7 +37,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useToast } from '@/composables/useToast';
-import { getCommConfig } from '@/api/user';
+import { getWebsiteConfig } from '@/api/auth';
 import { completeOAuth, getOAuthState } from '@/api/auth';
 
 /**
@@ -142,7 +142,7 @@ const loadTelegramWidget = () => {
 
 onMounted(async () => {
   try {
-    const response = await getCommConfig();
+    const response = await getWebsiteConfig();
     oauthConfig.value = response?.data?.oauth || null;
   } catch (err) {
     oauthConfig.value = null;

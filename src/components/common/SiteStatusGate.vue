@@ -75,7 +75,7 @@
 <script setup name="SiteStatusGate">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { getCommConfig } from '@/api/user';
+import { getWebsiteConfig } from '@/api/auth';
 
 const { t } = useI18n();
 
@@ -119,7 +119,7 @@ const load = async () => {
   loading.value = true;
   error.value = '';
   try {
-    const response = await getCommConfig();
+    const response = await getWebsiteConfig();
     const raw = response?.data?.site_status || {};
     const mode = ['maintenance', 'shutdown'].includes(raw.mode) ? raw.mode : 'normal';
     status.value = {
