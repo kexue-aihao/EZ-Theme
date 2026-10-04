@@ -794,7 +794,10 @@ export default {
 
         const parsed = JSON.parse(content);
 
-        return Array.isArray(parsed) && parsed.length > 0 && Object.prototype.hasOwnProperty.call(parsed[0], 'feature');
+        return Array.isArray(parsed) && parsed.length > 0 && parsed.every(item =>
+          item !== null && typeof item === 'object' && !Array.isArray(item) &&
+          Object.prototype.hasOwnProperty.call(item, 'feature')
+        );
 
       } catch (e) {
 
@@ -1321,6 +1324,8 @@ export default {
 
 <style lang="scss" scoped>
 
+@use '@/assets/styles/plan-content' as plan-content;
+
 .order-confirm-container {
 
   padding: 20px;
@@ -1338,6 +1343,8 @@ export default {
   .order-confirm-inner {
 
     width: 100%;
+
+    min-width: 0;
 
     max-width: 1200px; 
 
@@ -1771,6 +1778,10 @@ export default {
 
       .plan-features {
 
+        min-width: 0;
+
+        max-width: 100%;
+
         margin: 0;
 
         
@@ -1836,6 +1847,8 @@ export default {
         
 
         .html-content {
+
+          @include plan-content.rich-content;
 
           font-size: 14px;
 

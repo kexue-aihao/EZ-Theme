@@ -1,0 +1,36 @@
+@mixin rich-content {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  white-space: normal;
+
+  // v-html descendants do not receive Vue's scoped style attribute.
+  :deep(*) {
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  :deep(img),
+  :deep(video) {
+    height: auto;
+  }
+
+  :deep(table) {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  :deep(pre) {
+    overflow-x: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  :deep(a) {
+    overflow-wrap: anywhere;
+  }
+}

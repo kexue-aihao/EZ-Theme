@@ -942,7 +942,10 @@ export default {
 
         const parsed = JSON.parse(content);
 
-        return Array.isArray(parsed) && parsed.length > 0 && Object.prototype.hasOwnProperty.call(parsed[0], 'feature');
+        return Array.isArray(parsed) && parsed.length > 0 && parsed.every(item =>
+          item !== null && typeof item === 'object' && !Array.isArray(item) &&
+          Object.prototype.hasOwnProperty.call(item, 'feature')
+        );
 
       } catch (e) {
 
@@ -1284,6 +1287,8 @@ export default {
 
 <style lang="scss" scoped>
 
+@use '@/assets/styles/plan-content' as plan-content;
+
 .shop-container {
 
   padding: 20px;
@@ -1297,6 +1302,8 @@ export default {
   .shop-inner {
 
     width: 100%;
+
+    min-width: 0;
 
     max-width: 1200px;
 
@@ -1790,6 +1797,8 @@ export default {
 
     .plan-card {
 
+      min-width: 0;
+
       background-color: var(--card-bg-color);
 
       border-radius: 16px;
@@ -2214,6 +2223,10 @@ export default {
 
     .plan-features {
 
+      min-width: 0;
+
+      max-width: 100%;
+
       margin: 24px 0 10px 0;
 
       padding: 0 4px;
@@ -2295,6 +2308,8 @@ export default {
       
 
       .html-content {
+
+        @include plan-content.rich-content;
 
         font-size: 14px;
 
