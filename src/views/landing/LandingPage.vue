@@ -150,9 +150,20 @@
               </div>
             </div>
 
-            <ul class="plan-features">
-              <li v-for="(feature, i) in features(plan)" :key="i">{{ feature }}</li>
-            </ul>
+            <div class="plan-description">
+              <div
+                v-if="planDescriptions[plan.id].html"
+                class="html-content"
+                v-html="planDescriptions[plan.id].html"
+              ></div>
+              <ul v-else class="plan-features">
+                <li
+                  v-for="(feature, i) in planDescriptions[plan.id].features"
+                  :key="i"
+                  :class="{ 'disabled-feature': feature.support === false }"
+                >{{ feature.feature }}</li>
+              </ul>
+            </div>
 
             <button
               type="button"
@@ -208,6 +219,7 @@ import { IconChevronDown } from '@tabler/icons-vue';
 import { fetchGuestPlans, submitOrder } from '@/api/shop';
 import { checkLoginStatus } from '@/api/auth';
 import { savePendingPurchase } from '@/utils/pendingPurchase';
+import DOMPurify from 'dompurify';
 
 import DomainAuthAlert from '@/components/common/DomainAuthAlert.vue';
 
@@ -389,34 +401,46 @@ export default {
 
         : t('landing.plans.unlimited');
 
-    /**
-     * 套餐 content 是后台富文本（带换行与注释的 HTML），直接按行取前几行会把标签本身
-     * 当文案显示出来（线上踩过：卡片里出现 <div style="padding:20px…">）。
-     * 这里先把块级标签与 <br> 换成换行，再用 textContent 取纯文本（不用 v-html，避免注入）。
-     */
-    const toPlainLines = (html) => {
-
-      const withBreaks = String(html || '')
-        .replace(/<br\s*\/?>/gi, '\n')
-        .replace(/<\/(p|div|li|h[1-6]|tr|section|article)>/gi, '\n');
+    const describeContent = (content) => {
+      const value = String(content || '');
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed) && parsed.length > 0 && parsed.every((item) =>
+          item !== null && typeof item === 'object' && !Array.isArray(item) &&
+          Object.prototype.hasOwnProperty.call(item, 'feature')
+        )) {
+          return { html: '', features: parsed };
+        }
+      } catch (error) {
+        // HTML and plain text descriptions do not use the feature JSON format.
+      }
 
       const holder = document.createElement('div');
-      holder.innerHTML = withBreaks;
+      holder.innerHTML = DOMPurify.sanitize(value, {
+        USE_PROFILES: { html: true },
+        ADD_ATTR: ['target'],
+        FORBID_TAGS: ['style', 'form', 'input', 'button', 'select', 'textarea']
+      });
+      holder.querySelectorAll('a[target="_blank"]').forEach((link) => {
+        link.setAttribute('rel', 'noopener noreferrer');
+      });
 
-      return String(holder.textContent || '')
-        .split('\n')
-        .map((line) => line.replace(/\s+/g, ' ').trim())
-        .filter(Boolean);
+      if (holder.childElementCount > 0) {
+        return { html: holder.innerHTML, features: [] };
+      }
 
+      const lines = String(holder.textContent || '').split('\n')
+        .map((line) => line.trim()).filter(Boolean);
+      return {
+        html: '',
+        features: (lines.length ? lines : [t('landing.plans.defaultFeature')])
+          .map((feature) => ({ feature }))
+      };
     };
 
-    const features = (plan) => {
-
-      const lines = toPlainLines(plan.content).slice(0, 4);
-
-      return lines.length ? lines : [t('landing.plans.defaultFeature')];
-
-    };
+    const planDescriptions = computed(() => Object.fromEntries(
+      plans.value.map((plan) => [plan.id, describeContent(plan.content)])
+    ));
 
     const buy = async (plan) => {
 
@@ -502,7 +526,7 @@ export default {
       formatAmount,
       transferLabel,
       deviceLabel,
-      features,
+      planDescriptions,
       buy,
     };
 
@@ -515,6 +539,8 @@ export default {
 
 
 <style lang="scss" scoped>
+
+@use '@/assets/styles/plan-content' as plan-content;
 
 .landing-page {
 
@@ -1134,6 +1160,7 @@ export default {
 .plan-card {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   padding: 24px;
   border: 1px solid var(--border-color);
   border-radius: 16px;
@@ -1228,17 +1255,37 @@ export default {
   color: var(--text-color);
 }
 
+.plan-description {
+  min-width: 0;
+  max-width: 100%;
+  margin-bottom: 20px;
+  flex: 1;
+  text-align: left;
+
+  .html-content {
+    @include plan-content.rich-content;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text-color);
+  }
+}
+
 .plan-features {
   list-style: none;
-  margin: 0 0 20px;
+  margin: 0;
   padding: 0;
-  flex: 1;
 
   li {
     position: relative;
     padding: 4px 0 4px 18px;
     font-size: 14px;
     color: var(--secondary-text-color);
+    overflow-wrap: anywhere;
+
+    &.disabled-feature {
+      opacity: 0.6;
+      text-decoration: line-through;
+    }
 
     &:before {
       content: '';
